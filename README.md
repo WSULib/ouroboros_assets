@@ -1,5 +1,5 @@
 # ouroboros_assets
-Assets for Ouroboros
+Assets for [Ouroboros](https://github.com/WSULib/ouroboros)
 
 ## Folders
 * **bag_classes**
