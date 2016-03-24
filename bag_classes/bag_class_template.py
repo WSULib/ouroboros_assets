@@ -27,10 +27,14 @@ class BagClass(object):
 	
 		
 	# class is expecting a healthy amount of input from `ingestWorkspace` script, and object row
-	def __init__(self, ObjMeta, bag_root_dir, files_location, MODS, struct_map, object_title, DMDID, collection_identifier):
+	def __init__(self, object_row, ObjMeta, bag_root_dir, files_location, MODS, struct_map, object_title, DMDID, collection_identifier, purge_bags):
 
+		# hardcoded
 		self.name = 'bag_class_template' # human readable name, ideally matching filename, for this bag creating class 
 		self.content_type = 'WSUDOR_BagTemplate' # not required, but easy place to set the WSUDOR_ContentType 
+
+		# passed
+		self.object_row = object_row # handle for object mysql row in 'ingest_workspace_object' 
 		self.ObjMeta = ObjMeta # ObjMeta class from ouroboros.models
 		self.bag_root_dir = bag_root_dir # path for depositing formed bags
 		self.files_location = files_location # location of files: they might be flat, nested, grouped, etc.
@@ -39,17 +43,20 @@ class BagClass(object):
 		self.object_title = object_title
 		self.DMDID = DMDID # object DMDID from METS, probabl identifier for file (but not required, might be in MODS)
 		self.collection_identifier = collection_identifier # collection signifier, likely suffix to 'wayne:collection[THIS]'
+		self.purge_bags = purge_bags
 
-		# generate
+		# generate obj_dir
 		self.obj_dir = "/".join( [bag_root_dir, str(uuid.uuid4())] ) # UUID based hash directory for bag
 		if not os.path.exists(self.obj_dir):
 			os.mkdir(self.obj_dir)
+
 
 	def createBag(self):
 
 		'''
 		Function to create bag given inputs.  Most extensive and complex part of this class.
 		'''
+
 		# set identifier
 		full_identifier = self.DMDID
 		print full_identifier
@@ -106,6 +113,16 @@ class BagClass(object):
 			'Collection PID' : "wayne:collection"+self.collection_identifier,
 			'Object PID' : PID
 		}, processes=1)
+
+		# write some data back to DB
+		if self.purge_bags == True:
+			# remove previously recorded and stored bag
+			os.system("rm -r %s" % self.object_row.bag_path)
+		# sets, or updates, the bag path
+		self.object_row.bag_path = self.obj_dir
+
+		# commit
+		self.object_row._commit()
 
 		return self.obj_dir
 
