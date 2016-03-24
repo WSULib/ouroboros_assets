@@ -50,9 +50,6 @@ class BagClass(object):
 		'''
 		Function to create bag given inputs.  Most extensive and complex part of this class.
 		'''
-
-		# put together bag here 
-
 		# set identifier
 		full_identifier = self.DMDID
 		print full_identifier
@@ -62,9 +59,7 @@ class BagClass(object):
 
 		# write MODS
 		with open("%s/MODS.xml" % (self.obj_dir), "w") as fhand:
-			fhand.write(self.MODS)
-
-		# set label (might be from MODS, or object title)
+			fhand.write(self.MODS)		
 	
 		# instantiate object with quick variables
 		objMeta_primer = {
@@ -72,7 +67,13 @@ class BagClass(object):
 			"identifier":full_identifier,
 			"label":self.object_title,
 			"content_type":self.content_type
-		}			
+		}
+
+		################################################################
+		# put together bag here 
+		# ...
+		# ...
+		################################################################
 
 		# instantiate ObjMeta object
 		om_handle = self.ObjMeta(**objMeta_primer)
