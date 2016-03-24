@@ -18,7 +18,7 @@ See below for a template for this file.
 
 # Template File example
 
-import uuid, json
+import uuid, json, os
 import bagit
 
 
@@ -31,10 +31,8 @@ class BagClass(object):
 
 		self.name = 'bag_class_template' # human readable name, ideally matching filename, for this bag creating class 
 		self.content_type = 'WSUDOR_BagTemplate' # not required, but easy place to set the WSUDOR_ContentType 
-
 		self.ObjMeta = ObjMeta # ObjMeta class from ouroboros.models
 		self.bag_root_dir = bag_root_dir # path for depositing formed bags
-		self.obj_dir = "/".join([self.bag_root_dir,str(uuid.uuid4()) # UUID based hash directory for bag
 		self.files_location = files_location # location of files: they might be flat, nested, grouped, etc.
 		self.MODS = MODS # MODS as XML string
 		self.struct_map = struct_map # JSON representation of structMap section from METS file for this object
@@ -42,6 +40,10 @@ class BagClass(object):
 		self.DMDID = DMDID # object DMDID from METS, probabl identifier for file (but not required, might be in MODS)
 		self.collection_identifier = collection_identifier # collection signifier, likely suffix to 'wayne:collection[THIS]'
 
+		# generate
+		self.obj_dir = "/".join( [bag_root_dir, str(uuid.uuid4())] ) # UUID based hash directory for bag
+		if not os.path.exists(self.obj_dir):
+			os.mkdir(self.obj_dir)
 
 	def createBag(self):
 
@@ -60,7 +62,7 @@ class BagClass(object):
 
 		# write MODS
 		with open("%s/MODS.xml" % (self.obj_dir), "w") as fhand:
-			fhand.write(MODS_string)
+			fhand.write(self.MODS)
 
 		# set label (might be from MODS, or object title)
 	
@@ -96,15 +98,15 @@ class BagClass(object):
 		]
 
 		# write to objMeta.json file 
-		om_handle.writeToFile("%s/objMeta.json" % (obj_dir))
+		om_handle.writeToFile("%s/objMeta.json" % (self.obj_dir))
 
 		# make bag
 		bag = bagit.make_bag(self.obj_dir, {
 			'Collection PID' : "wayne:collection"+self.collection_identifier,
 			'Object PID' : PID
-		}, processes=15)
+		}, processes=1)
 
-		return obj_dir
+		return self.obj_dir
 
 
 
