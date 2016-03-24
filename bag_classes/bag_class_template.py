@@ -1,0 +1,115 @@
+# template for bag creation class 
+
+'''
+The files in this directory are inserted into the bag creation process from 'ingestWorkspace' in Ouroboros.
+The goal is to keep this class from assuming too much (e.g. assuming PID or file structure), such that
+it can be tailored for a multitude of ingest types.
+
+Each file must contain:
+	- `class BagClass`
+
+This class expected behavior is:
+	1) receive standardized inputs from bag creation script
+	2) create bag for object
+	3) return path of bag on disk
+
+See below for a template for this file.
+'''
+
+# Template File example
+
+import uuid, json
+import bagit
+
+
+# define required `BagClass` class
+class BagClass(object):
+	
+		
+	# class is expecting a healthy amount of input from `ingestWorkspace` script, and object row
+	def __init__(self, ObjMeta, bag_root_dir, files_location, MODS, struct_map, object_title, DMDID, collection_identifier):
+
+		self.name = 'bag_class_template' # human readable name, ideally matching filename, for this bag creating class 
+		self.content_type = 'WSUDOR_BagTemplate' # not required, but easy place to set the WSUDOR_ContentType 
+
+		self.ObjMeta = ObjMeta # ObjMeta class from ouroboros.models
+		self.bag_root_dir = bag_root_dir # path for depositing formed bags
+		self.obj_dir = "/".join([self.bag_root_dir,str(uuid.uuid4()) # UUID based hash directory for bag
+		self.files_location = files_location # location of files: they might be flat, nested, grouped, etc.
+		self.MODS = MODS # MODS as XML string
+		self.struct_map = struct_map # JSON representation of structMap section from METS file for this object
+		self.object_title = object_title
+		self.DMDID = DMDID # object DMDID from METS, probabl identifier for file (but not required, might be in MODS)
+		self.collection_identifier = collection_identifier # collection signifier, likely suffix to 'wayne:collection[THIS]'
+
+
+	def createBag(self):
+
+		'''
+		Function to create bag given inputs.  Most extensive and complex part of this class.
+		'''
+
+		# put together bag here 
+
+		# set identifier
+		full_identifier = self.DMDID
+		print full_identifier
+
+		# generate PID
+		PID = "wayne:%s" % (full_identifier)
+
+		# write MODS
+		with open("%s/MODS.xml" % (self.obj_dir), "w") as fhand:
+			fhand.write(MODS_string)
+
+		# set label (might be from MODS, or object title)
+	
+		# instantiate object with quick variables
+		objMeta_primer = {
+			"id":"wayne:"+full_identifier,
+			"identifier":full_identifier,
+			"label":self.object_title,
+			"content_type":self.content_type
+		}			
+
+		# instantiate ObjMeta object
+		om_handle = self.ObjMeta(**objMeta_primer)
+
+		# write known relationships
+		om_handle.object_relationships = [				
+			{
+				"predicate": "info:fedora/fedora-system:def/relations-external#isMemberOfCollection",
+				"object": "info:fedora/wayne:collection%s" % (self.collection_identifier)
+			},			
+			{
+				"predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/isDiscoverable",
+				"object": "info:fedora/True"
+			},
+			{
+				"predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/preferredContentModel",
+				"object": "info:fedora/CM:%s" % (self.content_type)
+			},
+			{
+				"predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/hasSecurityPolicy",
+				"object": "info:fedora/wayne:WSUDORSecurity-permit-apia-unrestricted"
+			}		
+		]
+
+		# write to objMeta.json file 
+		om_handle.writeToFile("%s/objMeta.json" % (obj_dir))
+
+		# make bag
+		bag = bagit.make_bag(self.obj_dir, {
+			'Collection PID' : "wayne:collection"+self.collection_identifier,
+			'Object PID' : PID
+		}, processes=15)
+
+		return obj_dir
+
+
+
+
+
+
+
+
