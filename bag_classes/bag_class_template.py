@@ -20,6 +20,7 @@ See below for a template for this file.
 
 import uuid, json, os
 import bagit
+from lxml import etree
 
 
 # define required `BagClass` class
@@ -44,6 +45,16 @@ class BagClass(object):
 		self.DMDID = DMDID # object DMDID from METS, probabl identifier for file (but not required, might be in MODS)
 		self.collection_identifier = collection_identifier # collection signifier, likely suffix to 'wayne:collection[THIS]'
 		self.purge_bags = purge_bags
+
+		# derived
+		# MODS_handle (parsed with etree)
+		try:
+			MODS_tree = etree.fromtring(self.MODS)
+			MODS_root = self.MODS_handle.getroot()
+			ns = MODS_root.nsmap
+			self.MODS_handle = MODS_root.xpath('//mods:mods', namespaces=ns)[0]
+		except:
+			print "could not parse MODS from DB string"			
 
 		# future
 		self.objMeta_handle = None

@@ -1,6 +1,8 @@
-# template for DSJ collection
+# DSJ bag class
+
 import uuid, json, os
 import bagit
+from lxml import etree
 
 
 # define required `BagClass` class
@@ -26,14 +28,23 @@ class BagClass(object):
 		self.collection_identifier = collection_identifier # collection signifier, likely suffix to 'wayne:collection[THIS]'
 		self.purge_bags = purge_bags
 
+		# derived
+		# MODS_handle (parsed with etree)
+		try:
+			MODS_tree = etree.fromtring(self.MODS)
+			MODS_root = self.MODS_handle.getroot()
+			ns = MODS_root.nsmap
+			self.MODS_handle = MODS_root.xpath('//mods:mods', namespaces=ns)[0]
+		except:
+			print "could not parse MODS from DB string"			
+
 		# future
 		self.objMeta_handle = None
 
 		# generate obj_dir
 		self.obj_dir = "/".join( [bag_root_dir, str(uuid.uuid4())] ) # UUID based hash directory for bag
 		if not os.path.exists(self.obj_dir):
-			os.mkdir(self.obj_dir)		
-
+			os.mkdir(self.obj_dir)	
 
 
 	def createBag(self):
@@ -100,8 +111,7 @@ class BagClass(object):
 		}, processes=1)
 
 
-		# because ingestWorkspace() picks up from here, simply return bag location
-		return obj_dir
+		return self.obj_dir
 
 
 
