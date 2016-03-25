@@ -1,22 +1,5 @@
-# template for bag creation class 
+# template for DSJ collection
 
-'''
-The files in this directory are inserted into the bag creation process from 'ingestWorkspace' in Ouroboros.
-The goal is to keep this class from assuming too much (e.g. assuming PID or file structure), such that
-it can be tailored for a multitude of ingest types.
-
-Each file must contain:
-	- `class BagClass`
-
-This class expected behavior is:
-	1) receive standardized inputs from bag creation script
-	2) create bag for object
-	3) return path of bag on disk
-
-See below for a template for this file.
-'''
-
-# Template File example
 
 import uuid, json, os
 import bagit
@@ -45,10 +28,14 @@ class BagClass(object):
 		self.collection_identifier = collection_identifier # collection signifier, likely suffix to 'wayne:collection[THIS]'
 		self.purge_bags = purge_bags
 
+		# future
+		self.objMeta_handle = None
+
 		# generate obj_dir
 		self.obj_dir = "/".join( [bag_root_dir, str(uuid.uuid4())] ) # UUID based hash directory for bag
 		if not os.path.exists(self.obj_dir):
-			os.mkdir(self.obj_dir)
+			os.mkdir(self.obj_dir)		
+
 
 
 	def createBag(self):
@@ -83,10 +70,10 @@ class BagClass(object):
 		################################################################
 
 		# instantiate ObjMeta object
-		om_handle = self.ObjMeta(**objMeta_primer)
+		self.objMeta_handle = self.ObjMeta(**objMeta_primer)
 
 		# write known relationships
-		om_handle.object_relationships = [				
+		self.objMeta_handle.object_relationships = [				
 			{
 				"predicate": "info:fedora/fedora-system:def/relations-external#isMemberOfCollection",
 				"object": "info:fedora/wayne:collection%s" % (self.collection_identifier)
@@ -106,7 +93,7 @@ class BagClass(object):
 		]
 
 		# write to objMeta.json file 
-		om_handle.writeToFile("%s/objMeta.json" % (self.obj_dir))
+		self.objMeta_handle.writeToFile("%s/objMeta.json" % (self.obj_dir))
 
 		# make bag
 		bag = bagit.make_bag(self.obj_dir, {
@@ -114,17 +101,9 @@ class BagClass(object):
 			'Object PID' : PID
 		}, processes=1)
 
-		# write some data back to DB
-		if self.purge_bags == True:
-			# remove previously recorded and stored bag
-			os.system("rm -r %s" % self.object_row.bag_path)
-		# sets, or updates, the bag path
-		self.object_row.bag_path = self.obj_dir
 
-		# commit
-		self.object_row._commit()
-
-		return self.obj_dir
+		# because ingestWorkspace() picks up from here, simply return bag location
+		return obj_dir
 
 
 
