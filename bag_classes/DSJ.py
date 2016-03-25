@@ -1,6 +1,4 @@
 # template for DSJ collection
-
-
 import uuid, json, os
 import bagit
 
