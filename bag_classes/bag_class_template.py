@@ -51,7 +51,10 @@ class BagClass(object):
 		# generate obj_dir
 		self.obj_dir = "/".join( [bag_root_dir, str(uuid.uuid4())] ) # UUID based hash directory for bag
 		if not os.path.exists(self.obj_dir):
-			os.mkdir(self.obj_dir)	
+			# make root dir
+			os.mkdir(self.obj_dir)
+			# make data dir
+			os.mkdir("/".join([self.obj_dir,"datastreams"]))	
 
 
 	def createBag(self):
