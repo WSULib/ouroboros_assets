@@ -99,7 +99,7 @@ class BagClass(object):
         # Instantiate ObjMeta object
         self.objMeta_handle = self.ObjMeta(**objMeta_primer)
 
-        # Setup datastreams folder
+        # Identify datastreams folder
         datastreams_dir = self.obj_dir + "/datastreams"
 
         # Parse struct map and building datstream dictionary
@@ -125,12 +125,13 @@ class BagClass(object):
 
             # make symlinks to datastreams on disk
             current_file_location = datastreams_dir + "/" + filename
-            make_symlink = "ln -s %s %s" % (self.files_location, current_file_location)
-            os.system(make_symlink)
+            os.symlink(self.files_location, current_file_location)
+            # make_symlink = "ln -s %s %s" % (self.files_location, current_file_location)
+            # os.system(make_symlink)
 
             # Set the representative image for the object
             if each["@ORDER"] == "1":
-                self.isRepresentedBy = each["@ORDER"]
+                self.objMeta_handle.isRepresentedBy = ds_id
 
         # write known relationships
         self.objMeta_handle.object_relationships = [
