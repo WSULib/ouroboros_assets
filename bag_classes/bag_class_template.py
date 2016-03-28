@@ -114,7 +114,7 @@ class BagClass(object):
 			},
 			{
 				"predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/preferredContentModel",
-				"object": "info:fedora/CM:%s" % (self.content_type)
+				"object": "info:fedora/CM:%s" % (self.content_type.split("_")[1])
 			},
 			{
 				"predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/hasSecurityPolicy",

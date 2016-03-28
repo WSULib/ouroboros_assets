@@ -14,7 +14,7 @@ class BagClass(object):
 
 		# hardcoded
 		self.name = 'DSJ' # human readable name, ideally matching filename, for this bag creating class 
-		self.content_type = 'WSUDOR_WSUebook' # not required, but easy place to set the WSUDOR_ContentType 
+		self.content_type = 'WSUDOR_WSUebook' # not required, but easy place to set the WSUDOR_ContentType		
 
 		# passed
 		self.object_row = object_row # handle for object mysql row in 'ingest_workspace_object' 
@@ -184,12 +184,20 @@ class BagClass(object):
 			},
 			{
 				"predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/preferredContentModel",
-				"object": "info:fedora/CM:%s" % (self.content_type)
+				"object": "info:fedora/CM:%s" % (self.content_type.split("_")[1])
 			},
 			{
 				"predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/hasSecurityPolicy",
 				"object": "info:fedora/wayne:WSUDORSecurity-permit-apia-unrestricted"
-			}		
+			},
+			{
+				"predicate": "info:fedora/fedora-system:def/relations-external#hasContentModel",
+				"object": "info:fedora/CM:Issue"
+			},
+			{
+				"predicate": "info:fedora/fedora-system:def/relations-external#isMemberOf",
+				"object": "info:fedora/wayne:DSJv" + volume
+			}	
 		]
 
 		# write to objMeta.json file 
