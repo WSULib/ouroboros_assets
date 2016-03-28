@@ -18,7 +18,7 @@ See below for a template for this file.
 
 # Template File example
 
-import uuid, json, os
+import uuid, json, os, errno
 import bagit
 from lxml import etree
 import mimetypes
@@ -26,14 +26,14 @@ import mimetypes
 
 # define required `BagClass` class
 class BagClass(object):
-    
-        
+
+
     # class is expecting a healthy amount of input from `ingestWorkspace` script, and object row
     def __init__(self, object_row, ObjMeta, bag_root_dir, files_location, MODS, MODS_handle, struct_map, object_title, DMDID, collection_identifier, purge_bags):
 
         # hardcoded
-        self.name = 'DSJ' # human readable name, ideally matching filename, for this bag creating class 
-        self.content_type = 'WSUDOR_WSUebook' # not required, but easy place to set the WSUDOR_ContentType      
+        self.name = 'DigDressColl' # human readable name, ideally matching filename, for this bag creating class 
+        self.content_type = 'WSUDOR_Image' # not required, but easy place to set the WSUDOR_ContentType      
 
         # passed
         self.object_row = object_row # handle for object mysql row in 'ingest_workspace_object' 
@@ -67,8 +67,7 @@ class BagClass(object):
             # make root dir
             os.mkdir(self.obj_dir)
             # make data dir
-            os.mkdir("/".join([self.obj_dir,"datastreams"]))        
-
+            os.mkdir("/".join([self.obj_dir,"datastreams"]))
 
 
     def createBag(self):
@@ -101,13 +100,10 @@ class BagClass(object):
         self.objMeta_handle = self.ObjMeta(**objMeta_primer)
 
         # Setup datastreams folder
-        datastreams_dir = self.BagClass.bag_root_dir + "/datastreams"
-        mkdir = "mkdir %s" % (datastreams_dir)
-        os.system(mkdir)
+        datastreams_dir = self.obj_dir + "/datastreams"
 
         # Parse struct map and building datstream dictionary
-        struct_map = json.loads(BagClass.struct_map)
-
+        struct_map = json.loads(self.struct_map)
         for each in struct_map["mets:div"]["mets:div"]:
 
             # get filename, extension, ds_id
@@ -120,8 +116,8 @@ class BagClass(object):
                 "filename": filename,
                 "ds_id": ds_id,
                 "mimetype": mimetypes.types_map[ext],
-                "label":each["@LABEL"],
-                "internal_relationships":{},
+                "label": each["@LABEL"],
+                "internal_relationships": {},
                 'order': each["@ORDER"]
             }
 
@@ -129,8 +125,12 @@ class BagClass(object):
 
             # make symlinks to datastreams on disk
             current_file_location = datastreams_dir + "/" + filename
-            make_symlink = "ln -s %s %s" % (self.BagClass.files_location, current_file_location)
+            make_symlink = "ln -s %s %s" % (self.files_location, current_file_location)
             os.system(make_symlink)
+
+            # Set the representative image for the object
+            if each["@ORDER"] == "1":
+                self.isRepresentedBy = each["@ORDER"]
 
         # write known relationships
         self.objMeta_handle.object_relationships = [
@@ -156,11 +156,10 @@ class BagClass(object):
         self.objMeta_handle.writeToFile("%s/objMeta.json" % (self.obj_dir))
 
         # make bag
-        bag = bagit.make_bag(self.obj_dir, {
-            'Collection PID' : "wayne:collection"+self.collection_identifier,
-            'Object PID' : PID
+        bagit.make_bag(self.obj_dir, {
+            'Collection PID': "wayne:collection"+self.collection_identifier,
+            'Object PID': PID
         }, processes=1)
-
 
         return self.obj_dir
 
