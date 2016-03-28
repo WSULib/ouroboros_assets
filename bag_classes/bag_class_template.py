@@ -28,11 +28,11 @@ class BagClass(object):
 	
 		
 	# class is expecting a healthy amount of input from `ingestWorkspace` script, and object row
-	def __init__(self, object_row, ObjMeta, bag_root_dir, files_location, MODS, struct_map, object_title, DMDID, collection_identifier, purge_bags):
+	def __init__(self, object_row, ObjMeta, bag_root_dir, files_location, MODS, MODS_handle, struct_map, object_title, DMDID, collection_identifier, purge_bags):
 
 		# hardcoded
-		self.name = 'bag_class_template' # human readable name, ideally matching filename, for this bag creating class 
-		self.content_type = 'WSUDOR_BagTemplate' # not required, but easy place to set the WSUDOR_ContentType 
+		self.name = 'DSJ' # human readable name, ideally matching filename, for this bag creating class 
+		self.content_type = 'WSUDOR_WSUebook' # not required, but easy place to set the WSUDOR_ContentType		
 
 		# passed
 		self.object_row = object_row # handle for object mysql row in 'ingest_workspace_object' 
@@ -40,6 +40,7 @@ class BagClass(object):
 		self.bag_root_dir = bag_root_dir # path for depositing formed bags
 		self.files_location = files_location # location of files: they might be flat, nested, grouped, etc.
 		self.MODS = MODS # MODS as XML string
+		self.MODS_handle = MODS_handle
 		self.struct_map = struct_map # JSON representation of structMap section from METS file for this object
 		self.object_title = object_title
 		self.DMDID = DMDID # object DMDID from METS, probabl identifier for file (but not required, might be in MODS)
@@ -65,7 +66,8 @@ class BagClass(object):
 			# make root dir
 			os.mkdir(self.obj_dir)
 			# make data dir
-			os.mkdir("/".join([self.obj_dir,"datastreams"]))	
+			os.mkdir("/".join([self.obj_dir,"datastreams"]))		
+
 
 
 	def createBag(self):
