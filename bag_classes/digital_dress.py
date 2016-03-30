@@ -1,4 +1,4 @@
-# template for bag creation class 
+# template for bag creation class
 
 '''
 The files in this directory are inserted into the bag creation process from 'ingestWorkspace' in Ouroboros.
@@ -18,57 +18,89 @@ See below for a template for this file.
 
 # Template File example
 
-import uuid, json, os, errno
+import uuid
+import json
+import os
 import bagit
-from lxml import etree
 import mimetypes
 
 
 # define required `BagClass` class
 class BagClass(object):
 
-
     # class is expecting a healthy amount of input from `ingestWorkspace` script, and object row
     def __init__(self, object_row, ObjMeta, bag_root_dir, files_location, MODS, MODS_handle, struct_map, object_title, DMDID, collection_identifier, purge_bags):
 
         # hardcoded
-        self.name = 'DigDressColl' # human readable name, ideally matching filename, for this bag creating class 
-        self.content_type = 'WSUDOR_Image' # not required, but easy place to set the WSUDOR_ContentType      
+        self.name = 'DigDressColl'  # human readable name, ideally matching filename, for this bag creating class
+        self.content_type = 'WSUDOR_Image'  # not required, but easy place to set the WSUDOR_ContentType
 
         # passed
-        self.object_row = object_row # handle for object mysql row in 'ingest_workspace_object' 
-        self.ObjMeta = ObjMeta # ObjMeta class from ouroboros.models
-        self.bag_root_dir = bag_root_dir # path for depositing formed bags
-        self.files_location = files_location # location of files: they might be flat, nested, grouped, etc.
-        self.MODS = MODS # MODS as XML string
+        self.object_row = object_row  # handle for object mysql row in 'ingest_workspace_object'
+        self.ObjMeta = ObjMeta  # ObjMeta class from ouroboros.models
+        self.bag_root_dir = bag_root_dir  # path for depositing formed bags
+        self.files_location = files_location  # location of files: they might be flat, nested, grouped, etc.
+        self.MODS = MODS  # MODS as XML string
         self.MODS_handle = MODS_handle
-        self.struct_map = struct_map # JSON representation of structMap section from METS file for this object
+        self.struct_map = struct_map  # JSON representation of structMap section from METS file for this object
         self.object_title = object_title
-        self.DMDID = DMDID # object DMDID from METS, probabl identifier for file (but not required, might be in MODS)
-        self.collection_identifier = collection_identifier # collection signifier, likely suffix to 'wayne:collection[THIS]'
+        self.DMDID = DMDID  # object DMDID from METS, probabl identifier for file (but not required, might be in MODS)
+        self.collection_identifier = collection_identifier  # collection signifier, likely suffix to 'wayne:collection[THIS]'
         self.purge_bags = purge_bags
 
         # derived
         # MODS_handle (parsed with etree)
         try:
-            MODS_tree = etree.fromtring(self.MODS)
             MODS_root = self.MODS_handle.getroot()
             ns = MODS_root.nsmap
             self.MODS_handle = MODS_root.xpath('//mods:mods', namespaces=ns)[0]
         except:
-            print "could not parse MODS from DB string"         
+            print "could not parse MODS from DB string"
 
         # future
         self.objMeta_handle = None
 
         # generate obj_dir
-        self.obj_dir = "/".join( [bag_root_dir, str(uuid.uuid4())] ) # UUID based hash directory for bag
+        self.obj_dir = "/".join([bag_root_dir, str(uuid.uuid4())])  # UUID based hash directory for bag
         if not os.path.exists(self.obj_dir):
             # make root dir
             os.mkdir(self.obj_dir)
             # make data dir
-            os.mkdir("/".join([self.obj_dir,"datastreams"]))
+            os.mkdir("/".join([self.obj_dir, "datastreams"]))
 
+    def _makeDatastream(self, each):
+
+        # Identify datastreams folder
+        datastreams_dir = self.obj_dir + "/datastreams"
+
+        filename = each["mets:fptr"]["@FILEID"]
+        label = each["@LABEL"]
+        order = each["@ORDER"]
+
+        # get extension, ds_id
+        mimetypes.init()
+        ds_id, ext = os.path.splitext(filename)
+
+        # create datastream dictionary
+        ds_dict = {
+            "filename": filename,
+            "ds_id": ds_id,
+            "mimetype": mimetypes.types_map[ext],
+            "label": label,
+            "internal_relationships": {},
+            'order': order
+        }
+
+        self.objMeta_handle.datastreams.append(ds_dict)
+
+        # make symlinks to datastreams on disk
+        bag_location = datastreams_dir + "/" + filename
+        remote_location = self.files_location + "/" + filename
+        os.symlink(remote_location, bag_location)
+
+        # Set the representative image for the object
+        if order == "1":
+            self.objMeta_handle.isRepresentedBy = ds_id
 
     def createBag(self):
 
@@ -95,43 +127,17 @@ class BagClass(object):
             "content_type": self.content_type
         }
 
-
         # Instantiate ObjMeta object
         self.objMeta_handle = self.ObjMeta(**objMeta_primer)
 
-        # Identify datastreams folder
-        datastreams_dir = self.obj_dir + "/datastreams"
-
         # Parse struct map and building datstream dictionary
         struct_map = json.loads(self.struct_map)
-        for each in struct_map["mets:div"]["mets:div"]:
+        if type(struct_map["mets:div"]["mets:div"]) is list:
+            for each in struct_map["mets:div"]["mets:div"]:
+                self._makeDatastream(each)
 
-            # get filename, extension, ds_id
-            mimetypes.init()
-            filename = each["mets:fptr"]["@FILEID"]
-            ds_id, ext = os.path.splitext(filename)
-
-            # create datastream dictionary
-            ds_dict = {
-                "filename": filename,
-                "ds_id": ds_id,
-                "mimetype": mimetypes.types_map[ext],
-                "label": each["@LABEL"],
-                "internal_relationships": {},
-                'order': each["@ORDER"]
-            }
-
-            self.objMeta_handle.datastreams.append(ds_dict)
-
-            # make symlinks to datastreams on disk
-            current_file_location = datastreams_dir + "/" + filename
-            os.symlink(self.files_location, current_file_location)
-            # make_symlink = "ln -s %s %s" % (self.files_location, current_file_location)
-            # os.system(make_symlink)
-
-            # Set the representative image for the object
-            if each["@ORDER"] == "1":
-                self.objMeta_handle.isRepresentedBy = ds_id
+        else:
+            self._makeDatastream(struct_map["mets:div"]["mets:div"])
 
         # write known relationships
         self.objMeta_handle.object_relationships = [
@@ -145,7 +151,7 @@ class BagClass(object):
             },
             {
                 "predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/preferredContentModel",
-                "object": "info:fedora/CM:%s" % (self.content_type)
+                "object": "info:fedora/CM:%s" % (self.content_type.split("_")[1])
             },
             {
                 "predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/hasSecurityPolicy",
@@ -153,7 +159,7 @@ class BagClass(object):
             }
         ]
 
-        # write to objMeta.json file 
+        # write to objMeta.json file
         self.objMeta_handle.writeToFile("%s/objMeta.json" % (self.obj_dir))
 
         # make bag
@@ -163,11 +169,3 @@ class BagClass(object):
         }, processes=1)
 
         return self.obj_dir
-
-
-
-
-
-
-
-
