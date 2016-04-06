@@ -1,22 +1,4 @@
-# template for bag creation class 
-
-'''
-The files in this directory are inserted into the bag creation process from 'ingestWorkspace' in Ouroboros.
-The goal is to keep this class from assuming too much (e.g. assuming PID or file structure), such that
-it can be tailored for a multitude of ingest types.
-
-Each file must contain:
-	- `class BagClass`
-
-This class expected behavior is:
-	1) receive standardized inputs from bag creation script
-	2) create bag for object
-	3) return path of bag on disk
-
-See below for a template for this file.
-'''
-
-# Template File example
+# Collection Object class
 
 import uuid, json, os
 import bagit
@@ -31,8 +13,8 @@ class BagClass(object):
 	def __init__(self, object_row, ObjMeta, bag_root_dir, files_location, MODS, MODS_handle, struct_map, object_title, DMDID, collection_identifier, purge_bags):
 
 		# hardcoded
-		self.name = 'Template' # human readable name, ideally matching filename, for this bag creating class 
-		self.content_type = 'WSUDOR_Template' # not required, but easy place to set the WSUDOR_ContentType		
+		self.name = 'Collection' # human readable name, ideally matching filename, for this bag creating class 
+		self.content_type = 'WSUDOR_Collection' # not required, but easy place to set the WSUDOR_ContentType		
 
 		# passed
 		self.object_row = object_row # handle for object mysql row in 'ingest_workspace_object' 
