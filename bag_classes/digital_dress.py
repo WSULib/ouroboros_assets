@@ -109,11 +109,11 @@ class BagClass(object):
         '''
 
         # set identifier
-        full_identifier = self.DMDID
-        print full_identifier
+        self.full_identifier = self.DMDID
+        print self.full_identifier
 
         # generate PID
-        PID = "wayne:%s" % (full_identifier)
+        pid = "wayne:%s" % (self.full_identifier)
 
         # write MODS
         with open("%s/MODS.xml" % (self.obj_dir), "w") as fhand:
@@ -121,8 +121,8 @@ class BagClass(object):
 
         # instantiate object with quick variables
         objMeta_primer = {
-            "id": "wayne:"+full_identifier,
-            "identifier": full_identifier,
+            "id": "wayne:"+self.full_identifier,
+            "identifier": self.full_identifier,
             "label": self.object_title,
             "content_type": self.content_type
         }
@@ -165,7 +165,7 @@ class BagClass(object):
         # make bag
         bagit.make_bag(self.obj_dir, {
             'Collection PID': "wayne:collection"+self.collection_identifier,
-            'Object PID': PID
+            'Object PID': self.pid
         }, processes=1)
 
         return self.obj_dir

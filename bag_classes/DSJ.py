@@ -58,11 +58,11 @@ class BagClass(object):
 		'''
 
 		# set identifier
-		full_identifier = self.DMDID
-		print full_identifier
+		self.full_identifier = self.DMDID
+		print self.full_identifier
 
 		# generate PID
-		PID = "wayne:%s" % (full_identifier)
+		self.pid = "wayne:%s" % (self.full_identifier)
 
 		# write MODS
 		with open("%s/MODS.xml" % (self.obj_dir), "w") as fhand:
@@ -81,12 +81,8 @@ class BagClass(object):
 		issue = self.MODS_handle['MODS_element'].xpath('//mods:detail[@type="issue"]/mods:number', namespaces=self.MODS_handle['MODS_ns'])[0].text
 
 		# gen full identifier
-		full_identifier = "DSJv" + volume + "i" + issue + identifier
-		print "full identifier: %s " % full_identifier
-
-		# generate PID
-		PID = "wayne:%s" % (full_identifier)
-		print "PID:",PID
+		self.full_identifier = "DSJv" + volume + "i" + issue + identifier
+		print "full identifier: %s " % self.full_identifier		
 
 		# get title for DSJ
 		book_title = self.MODS_handle['MODS_element'].xpath('mods:titleInfo/mods:title',namespaces=self.MODS_handle['MODS_ns'])[0].text
@@ -97,7 +93,7 @@ class BagClass(object):
 		# instantiate object with quick variables
 		objMeta_primer = {
 			"id":PID,
-			"identifier":full_identifier,
+			"identifier":self.full_identifier,
 			"label":full_title,
 			"content_type":self.content_type,
 			"image_filetype":"tif"
@@ -206,7 +202,7 @@ class BagClass(object):
 		# make bag
 		bag = bagit.make_bag(self.obj_dir, {
 			'Collection PID' : "wayne:collection"+self.collection_identifier,
-			'Object PID' : PID
+			'Object PID' : self.pid
 		}, processes=1)
 
 		# because ingestWorkspace() picks up from here, simply return bag location

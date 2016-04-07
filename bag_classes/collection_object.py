@@ -3,6 +3,7 @@
 import uuid, json, os
 import bagit
 from lxml import etree
+import mimetypes
 
 
 # define required `BagClass` class
@@ -59,11 +60,11 @@ class BagClass(object):
 		'''
 
 		# set identifier
-		full_identifier = self.DMDID
-		print full_identifier
+		self.full_identifier = self.DMDID
+		print self.full_identifier
 
 		# generate PID
-		PID = "wayne:%s" % (full_identifier)
+		self.pid = "wayne:collection%s" % (self.full_identifier)
 
 		# write MODS
 		with open("%s/MODS.xml" % (self.obj_dir), "w") as fhand:
@@ -71,27 +72,65 @@ class BagClass(object):
 	
 		# instantiate object with quick variables
 		objMeta_primer = {
-			"id":"wayne:"+full_identifier,
-			"identifier":full_identifier,
+			"id":self.pid,
+			"identifier":self.full_identifier,
 			"label":self.object_title,
 			"content_type":self.content_type
 		}
 
-		################################################################
-		# put together bag here 
-		# ...
-		# ...
-		################################################################
-
-		# instantiate ObjMeta object
+		# Instantiate ObjMeta object
 		self.objMeta_handle = self.ObjMeta(**objMeta_primer)
 
+		################################################################
+		# set Collection Art
+		
+		# Identify datastreams folder
+		datastreams_dir = self.obj_dir + "/datastreams"
+
+		# collection art file
+		print "Looking in: %s" % self.files_location
+		art_files = [filename for filename in os.listdir(self.files_location) if filename.startswith("COLLECTIONART")]
+		if len(art_files) == 1:
+			filename = art_files[0]
+
+			label = "Collection Art"
+			order = 1
+
+			# get extension, ds_id
+			mimetypes.init()
+			ds_id, ext = os.path.splitext(filename)
+
+			# create datastream dictionary
+			ds_dict = {
+				"filename": filename,
+				"ds_id": 'COLLECTIONART',
+				"mimetype": mimetypes.types_map[ext],
+				"label": label,
+				"internal_relationships": {},
+				'order': order
+			}
+
+			self.objMeta_handle.datastreams.append(ds_dict)
+
+			# make symlinks to datastreams on disk
+			bag_location = datastreams_dir + "/" + filename
+
+			# determine remote_location by parsing filename
+			filename_parts = filename.split("_")
+			remote_location = "/".join([ self.files_location, filename ])
+			os.symlink(remote_location, bag_location)
+			
+			# set as representative datastream
+			self.objMeta_handle.isRepresentedBy = 'COLLECTIONART'
+		
+		else:
+			print "Could not locate Collection Art, skipping."
+		
+
+		################################################################		
+
 		# write known relationships
-		self.objMeta_handle.object_relationships = [				
-			{
-				"predicate": "info:fedora/fedora-system:def/relations-external#isMemberOfCollection",
-				"object": "info:fedora/wayne:collection%s" % (self.collection_identifier)
-			},			
+		self.objMeta_handle.object_relationships = [
 			{
 				"predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/isDiscoverable",
 				"object": "info:fedora/True"
@@ -111,8 +150,8 @@ class BagClass(object):
 
 		# make bag
 		bag = bagit.make_bag(self.obj_dir, {
-			'Collection PID' : "wayne:collection"+self.collection_identifier,
-			'Object PID' : PID
+			'Collection PID' : self.pid,
+			'Object PID' : self.pid
 		}, processes=1)
 
 
