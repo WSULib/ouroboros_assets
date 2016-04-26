@@ -1,27 +1,10 @@
-# template for bag creation class 
-
-'''
-The files in this directory are inserted into the bag creation process from 'ingestWorkspace' in Ouroboros.
-The goal is to keep this class from assuming too much (e.g. assuming PID or file structure), such that
-it can be tailored for a multitude of ingest types.
-
-Each file must contain:
-	- `class BagClass`
-
-This class expected behavior is:
-	1) receive standardized inputs from bag creation script
-	2) create bag for object
-	3) return path of bag on disk
-
-See below for a template for this file.
-'''
-
-# Template File example
+# Archivematica
 
 import uuid, json, os
 import bagit
 from lxml import etree
 import mimetypes
+import metsrw
 
 
 # define required `BagClass` class
@@ -32,7 +15,7 @@ class BagClass(object):
 	def __init__(self, object_row, ObjMeta, bag_root_dir, files_location, MODS, MODS_handle, struct_map, object_title, DMDID, collection_identifier, purge_bags):
 
 		# hardcoded
-		self.name = 'Generic METS' # human readable name, ideally matching filename, for this bag creating class
+		self.name = 'Generic_METS' # human readable name, ideally matching filename, for this bag creating class
 		self.content_type = 'WSUDOR_Image'  # not required, but easy place to set the WSUDOR_ContentType
 
 		# passed
@@ -48,7 +31,7 @@ class BagClass(object):
 		self.collection_identifier = collection_identifier  # collection signifier, likely suffix to 'wayne:collection[THIS]'
 		self.purge_bags = purge_bags
 
-		# derived
+		# derivedcollection_identifier
 		# MODS_handle (parsed with etree)
 		try:
 			MODS_tree = etree.fromtring(self.MODS)
@@ -70,14 +53,17 @@ class BagClass(object):
 			os.mkdir("/".join([self.obj_dir,"datastreams"]))	
 
 
-	def _makeDatastream(self, each):
+	def _makeDatastream(self, fs):
 
 		# Identify datastreams folder
 		datastreams_dir = self.obj_dir + "/datastreams"
 
-		filename = each["mets:fptr"]["@FILEID"]
-		label = each["@LABEL"]
-		order = each["@ORDER"]
+		filename = fs.path.split("/")[-1]
+		label = fs.label
+		'''
+		Need to resolve issue of order...
+		'''
+		order = 1 
 
 		# get extension, ds_id
 		mimetypes.init()
@@ -99,12 +85,11 @@ class BagClass(object):
 		bag_location = datastreams_dir + "/" + filename
 
 		# determine remote_location by parsing filename
-		filename_parts = filename.split("_")
-		remote_location = self.files_location + "/" + "/".join(filename_parts)
+		remote_location = self.files_location + "/" + fs.path
 		os.symlink(remote_location, bag_location)
 
 		# Set the representative image for the object
-		if order == "1":
+		if int(order) == 1:
 			self.objMeta_handle.isRepresentedBy = ds_id
 
 	def createBag(self):
@@ -131,18 +116,16 @@ class BagClass(object):
 		# Instantiate ObjMeta object
 		self.objMeta_handle = self.ObjMeta(**objMeta_primer)
 
-		# Parse struct map and building datstream dictionary
-
+		# open mets
 		'''
-		Here, use metsrw to get file path...
+		Obviously, want to avoid this decode / encode thing here...
 		'''
-		# struct_map = json.loads(self.struct_map)
-		# if type(struct_map["mets:div"]["mets:div"]) is list:
-		# 	for each in struct_map["mets:div"]["mets:div"]:
-		# 		self._makeDatastream(each)
+		mets = metsrw.METSDocument.fromtree( etree.fromstring(self.object_row.job.ingest_metadata.decode('utf-8').encode('ascii')) )
+		print mets.all_files()
 
-		# else:
-		# 	self._makeDatastream(struct_map["mets:div"]["mets:div"])
+		# Build datstream dictionary
+		fs = mets.get_file(self.DMDID)
+		self._makeDatastream(fs)
 
 		# write known relationships
 		self.objMeta_handle.object_relationships = [
