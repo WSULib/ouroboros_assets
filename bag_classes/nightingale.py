@@ -29,24 +29,24 @@ class BagClass(object):
 	
 		
 	# class is expecting a healthy amount of input from `ingestWorkspace` script, and object row
-	def __init__(self, o, ObjMeta, bag_root_dir, files_location, purge_bags):
+	def __init__(self, object_row, ObjMeta, bag_root_dir, files_location, purge_bags):
 
 		# hardcoded
 		self.name = 'Nightingale'  # human readable name, ideally matching filename, for this bag creating class
 		self.content_type = 'WSUDOR_Image'  # not required, but easy place to set the WSUDOR_ContentType
 
 		# passed
-		self.object_row = o  # handle for object mysql row in 'ingest_workspace_object'
+		self.object_row = object_row  # handle for object mysql row in 'ingest_workspace_object'
 		self.ObjMeta = ObjMeta  # ObjMeta class from ouroboros.models
 		self.bag_root_dir = bag_root_dir  # path for depositing formed bags
 		self.files_location = files_location  # location of files: they might be flat, nested, grouped, etc.
 		
 		# derived from object_row
-		self.MODS = o.MODS  # MODS as XML string		
-		self.struct_map = o.struct_map  # JSON representation of structMap section from METS file for this object
-		self.object_title = o.object_title
-		self.DMDID = o.DMDID  # object DMDID from METS, probabl identifier for file (but not required, might be in MODS)
-		self.collection_identifier = o.collection_identifier  # collection signifier, likely suffix to 'wayne:collection[THIS]'
+		self.MODS = object_row.MODS  # MODS as XML string		
+		self.struct_map = object_row.struct_map  # JSON representation of structMap section from METS file for this object
+		self.object_title = object_row.object_title
+		self.DMDID = object_row.DMDID  # object DMDID from METS, probabl identifier for file (but not required, might be in MODS)
+		self.collection_identifier = object_row.job.collection_identifier  # collection signifier, likely suffix to 'wayne:collection[THIS]'
 		
 		self.purge_bags = purge_bags
 
@@ -103,6 +103,7 @@ class BagClass(object):
 		# determine remote_location by parsing filename
 		filename_parts = filename.split("_")
 		remote_location = self.files_location + "/" + "/".join(filename_parts)
+		print "attemping symlink from %s to %s" % (remote_location,bag_location)
 		os.symlink(remote_location, bag_location)
 
 		# Set the representative image for the object
