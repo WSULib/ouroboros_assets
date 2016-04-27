@@ -29,7 +29,7 @@ class BagClass(object):
 	
 		
 	# class is expecting a healthy amount of input from `ingestWorkspace` script, and object row
-	def __init__(self, object_row, ObjMeta, bag_root_dir, files_location, MODS, MODS_handle, struct_map, object_title, DMDID, collection_identifier, purge_bags):
+	def __init__(self, object_row, ObjMeta, bag_root_dir, files_location, purge_bags):
 
 		# hardcoded
 		self.name = 'Nightingale'  # human readable name, ideally matching filename, for this bag creating class

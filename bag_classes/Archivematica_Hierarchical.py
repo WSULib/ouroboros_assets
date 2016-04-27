@@ -31,7 +31,6 @@ class BagClass(object):
 		self.collection_identifier = collection_identifier  # collection signifier, likely suffix to 'wayne:collection[THIS]'
 		self.purge_bags = purge_bags
 
-		# derivedcollection_identifier
 		# MODS_handle (parsed with etree)
 		try:
 			MODS_tree = etree.fromtring(self.MODS)
@@ -125,6 +124,14 @@ class BagClass(object):
 
 		# Build datstream dictionary
 		fs = mets.get_file(self.DMDID)
+		'''
+		at this point, we can know the mimetype of this file, and trigger the correct WSUDOR_ContentType
+			- assumes object is "simple", only one file (maybe the best way... look at converting others)
+			- trigger CM based on mimetype as determined by Archivematica
+
+		for "container" / directory front-end view, we'll see the thumbnails of children objects
+		'''
+
 		self._makeDatastream(fs)
 
 		# write known relationships
