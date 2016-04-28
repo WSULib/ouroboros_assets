@@ -110,7 +110,7 @@ class BagClass(object):
 		# write parent
 		self.objMeta_handle.object_relationships.append({
 			"predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/hasParent",
-			"object": parent_pid
+			"object": "info:fedora/%s" % parent_pid
 		})
 
 		
