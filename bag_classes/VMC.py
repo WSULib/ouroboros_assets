@@ -61,7 +61,6 @@ class BagClass(object):
 
 		filename = each["mets:fptr"]["@FILEID"]
 		label = each["@LABEL"]
-		order = each["@ORDER"]
 
 		# get extension, ds_id
 		mimetypes.init()
@@ -74,7 +73,7 @@ class BagClass(object):
 			"mimetype": mimetypes.types_map[ext],
 			"label": label,
 			"internal_relationships": {},
-			'order': order
+			'order': 1
 		}
 
 		self.objMeta_handle.datastreams.append(ds_dict)
@@ -86,7 +85,7 @@ class BagClass(object):
 		filename_root = filename.split("vmc")[1]
 		
 		# get remote_location from 
-		fd = json.loads(o.j.file_index) # loads from MySQL
+		fd = json.loads(self.object_row.job.file_index) # loads from MySQL
 		filename_path = fd[filename_root]
 		print "target filename path is:",filename_path
 		remote_location = filename_path
@@ -95,8 +94,7 @@ class BagClass(object):
 		os.symlink(remote_location, bag_location)
 
 		# Set the representative image for the object
-		if order == "1":
-			self.objMeta_handle.isRepresentedBy = ds_id
+		self.objMeta_handle.isRepresentedBy = ds_id
 
 	def createBag(self):
 
@@ -128,12 +126,12 @@ class BagClass(object):
 
 		# Parse struct map and building datstream dictionary
 		struct_map = json.loads(self.struct_map)
-		if type(struct_map["mets:div"]["mets:div"]) is list:
-			for each in struct_map["mets:div"]["mets:div"]:
+		if type(struct_map["mets:div"]) is list:
+			for each in struct_map["mets:div"]:
 				self._makeDatastream(each)
 
 		else:
-			self._makeDatastream(struct_map["mets:div"]["mets:div"])
+			self._makeDatastream(struct_map["mets:div"])
 
 		# write known relationships
 		self.objMeta_handle.object_relationships = [
