@@ -11,7 +11,7 @@ class BagClass(object):
 	
 		
 	# class is expecting a healthy amount of input from `ingestWorkspace` script, and object row
-	def __init__(self, object_row, ObjMeta, bag_root_dir, files_location, MODS, MODS_handle, struct_map, object_title, DMDID, collection_identifier, purge_bags):
+	def __init__(self, object_row, ObjMeta, bag_root_dir, files_location, purge_bags):
 
 		# hardcoded
 		self.name = 'VMC'  # human readable name, ideally matching filename, for this bag creating class
@@ -22,12 +22,14 @@ class BagClass(object):
 		self.ObjMeta = ObjMeta  # ObjMeta class from ouroboros.models
 		self.bag_root_dir = bag_root_dir  # path for depositing formed bags
 		self.files_location = files_location  # location of files: they might be flat, nested, grouped, etc.
-		self.MODS = MODS  # MODS as XML string
-		self.MODS_handle = MODS_handle
-		self.struct_map = struct_map  # JSON representation of structMap section from METS file for this object
-		self.object_title = object_title
-		self.DMDID = DMDID  # object DMDID from METS, probabl identifier for file (but not required, might be in MODS)
-		self.collection_identifier = collection_identifier  # collection signifier, likely suffix to 'wayne:collection[THIS]'
+		
+		# derived from object_row
+		self.MODS = object_row.MODS  # MODS as XML string		
+		self.struct_map = object_row.struct_map  # JSON representation of structMap section from METS file for this object
+		self.object_title = object_row.object_title
+		self.DMDID = object_row.DMDID  # object DMDID from METS, probabl identifier for file (but not required, might be in MODS)
+		self.collection_identifier = object_row.job.collection_identifier  # collection signifier, likely suffix to 'wayne:collection[THIS]'
+		
 		self.purge_bags = purge_bags
 
 		# derived
