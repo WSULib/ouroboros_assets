@@ -103,7 +103,7 @@ class BagClass(object):
 		'''
 
 		# set identifier
-		self.full_identifier = self.collection_identifier+self.DMDID
+		self.full_identifier = self.DMDID
 		print self.full_identifier
 
 		# generate PID
