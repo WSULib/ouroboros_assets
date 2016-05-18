@@ -62,7 +62,7 @@ class BagClass(object):
 		filename = each["mets:fptr"]["@FILEID"]
 
 		# truncate datastream label to 100 characters
-		label = (each["@LABEL"][:100] + '..') if len(each["@LABEL"]) > 100 else each["@LABEL"]
+		label = (self.object_title[:100] + '..') if len(self.object_title) > 100 else self.object_title
 
 		# get extension, ds_id
 		mimetypes.init()
