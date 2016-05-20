@@ -44,7 +44,7 @@ class BagClass(object):
 		# derived from object_row
 		self.MODS = object_row.MODS  # MODS as XML string		
 		self.struct_map = object_row.struct_map  # JSON representation of structMap section from METS file for this object
-		self.object_title = object_row.object_title
+		self.object_title = (object_row.object_title[:100] + '..') if len(object_row.object_title) > 100 else object_row.object_title
 		self.DMDID = object_row.DMDID  # object DMDID from METS, probabl identifier for file (but not required, might be in MODS)
 		self.collection_identifier = object_row.job.collection_identifier  # collection signifier, likely suffix to 'wayne:collection[THIS]'
 		
@@ -69,7 +69,7 @@ class BagClass(object):
 			# make root dir
 			os.mkdir(self.obj_dir)
 			# make data dir
-			os.mkdir("/".join([self.obj_dir,"datastreams"]))	
+			os.mkdir("/".join([self.obj_dir,"datastreams"]))
 
 
 	def _makeDatastream(self, each):

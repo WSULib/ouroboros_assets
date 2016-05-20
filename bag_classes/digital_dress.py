@@ -27,9 +27,10 @@ import mimetypes
 
 # define required `BagClass` class
 class BagClass(object):
-
+    
+        
     # class is expecting a healthy amount of input from `ingestWorkspace` script, and object row
-    def __init__(self, object_row, ObjMeta, bag_root_dir, files_location, MODS, MODS_handle, struct_map, object_title, DMDID, collection_identifier, purge_bags):
+    def __init__(self, object_row, ObjMeta, bag_root_dir, files_location, purge_bags):
 
         # hardcoded
         self.name = 'DigDressColl'  # human readable name, ideally matching filename, for this bag creating class
@@ -40,33 +41,36 @@ class BagClass(object):
         self.ObjMeta = ObjMeta  # ObjMeta class from ouroboros.models
         self.bag_root_dir = bag_root_dir  # path for depositing formed bags
         self.files_location = files_location  # location of files: they might be flat, nested, grouped, etc.
-        self.MODS = MODS  # MODS as XML string
-        self.MODS_handle = MODS_handle
-        self.struct_map = struct_map  # JSON representation of structMap section from METS file for this object
-        self.object_title = object_title
-        self.DMDID = DMDID  # object DMDID from METS, probabl identifier for file (but not required, might be in MODS)
-        self.collection_identifier = collection_identifier  # collection signifier, likely suffix to 'wayne:collection[THIS]'
+        
+        # derived from object_row
+        self.MODS = object_row.MODS  # MODS as XML string       
+        self.struct_map = object_row.struct_map  # JSON representation of structMap section from METS file for this object
+        self.object_title = (object_row.object_title[:100] + '..') if len(object_row.object_title) > 100 else object_row.object_title
+        self.DMDID = object_row.DMDID  # object DMDID from METS, probabl identifier for file (but not required, might be in MODS)
+        self.collection_identifier = object_row.job.collection_identifier  # collection signifier, likely suffix to 'wayne:collection[THIS]'
+        
         self.purge_bags = purge_bags
 
         # derived
         # MODS_handle (parsed with etree)
         try:
+            MODS_tree = etree.fromtring(self.MODS)
             MODS_root = self.MODS_handle.getroot()
             ns = MODS_root.nsmap
             self.MODS_handle = MODS_root.xpath('//mods:mods', namespaces=ns)[0]
         except:
-            print "could not parse MODS from DB string"
+            print "could not parse MODS from DB string"         
 
         # future
         self.objMeta_handle = None
 
         # generate obj_dir
-        self.obj_dir = "/".join([bag_root_dir, str(uuid.uuid4())])  # UUID based hash directory for bag
+        self.obj_dir = "/".join( [bag_root_dir, str(uuid.uuid4())] ) # UUID based hash directory for bag
         if not os.path.exists(self.obj_dir):
             # make root dir
             os.mkdir(self.obj_dir)
             # make data dir
-            os.mkdir("/".join([self.obj_dir, "datastreams"]))
+            os.mkdir("/".join([self.obj_dir,"datastreams"]))    
 
     def _makeDatastream(self, each):
 
