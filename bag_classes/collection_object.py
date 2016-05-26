@@ -34,13 +34,13 @@ class BagClass(object):
 
 		# derived
 		# MODS_handle (parsed with etree)
-		try:
-			MODS_tree = etree.fromtring(self.MODS)
-			MODS_root = self.MODS_handle.getroot()
-			ns = MODS_root.nsmap
-			self.MODS_handle = MODS_root.xpath('//mods:mods', namespaces=ns)[0]
-		except:
-			print "could not parse MODS from DB string"			
+		# try:
+		MODS_tree = etree.fromtring(self.MODS)
+		MODS_root = self.MODS_handle.getroot()
+		ns = MODS_root.nsmap
+		self.MODS_handle = MODS_root.xpath('//mods:mods', namespaces=ns)[0]
+		# except:
+		# 	print "could not parse MODS from DB string"			
 
 		# future
 		self.objMeta_handle = None
