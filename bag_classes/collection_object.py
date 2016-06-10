@@ -12,7 +12,16 @@ class BagClass(object):
 		
 	# class is expecting a healthy amount of input from `ingestWorkspace` script, and object row
 	def __init__(self, object_row, ObjMeta, bag_root_dir, files_location, purge_bags):
-
+		print "object_row"
+		print object_row
+		print "ObjMeta"
+		print ObjMeta
+		print "bag_root_dir"
+		print bag_root_dir
+		print "files_location"
+		print files_location
+		print "purge_bags"
+		print purge_bags
 		# hardcoded
 		self.name = 'Collection'  # human readable name, ideally matching filename, for this bag creating class
 		self.content_type = 'WSUDOR_Collection'  # not required, but easy place to set the WSUDOR_ContentType
@@ -31,16 +40,6 @@ class BagClass(object):
 		self.collection_identifier = object_row.job.collection_identifier  # collection signifier, likely suffix to 'wayne:collection[THIS]'
 		
 		self.purge_bags = purge_bags
-
-		# derived
-		# MODS_handle (parsed with etree)
-		# try:
-		MODS_tree = etree.fromtring(self.MODS)
-		MODS_root = self.MODS_handle.getroot()
-		ns = MODS_root.nsmap
-		self.MODS_handle = MODS_root.xpath('//mods:mods', namespaces=ns)[0]
-		# except:
-		# 	print "could not parse MODS from DB string"			
 
 		# future
 		self.objMeta_handle = None
