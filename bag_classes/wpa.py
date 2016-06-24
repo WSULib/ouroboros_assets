@@ -1,9 +1,29 @@
-# VMC
+# template for bag creation class 
+
+'''
+The files in this directory are inserted into the bag creation process from 'ingestWorkspace' in Ouroboros.
+The goal is to keep this class from assuming too much (e.g. assuming PID or file structure), such that
+it can be tailored for a multitude of ingest types.
+
+Each file must contain:
+	- `class BagClass`
+
+This class expected behavior is:
+	1) receive standardized inputs from bag creation script
+	2) create bag for object
+	3) return path of bag on disk
+
+See below for a template for this file.
+'''
+
+# Template File example
 
 import uuid, json, os
 import bagit
 from lxml import etree
 import mimetypes
+
+from WSUDOR_Manager import models
 
 
 # define required `BagClass` class
@@ -14,7 +34,7 @@ class BagClass(object):
 	def __init__(self, object_row, ObjMeta, bag_root_dir, files_location, purge_bags):
 
 		# hardcoded
-		self.name = 'VMC'  # human readable name, ideally matching filename, for this bag creating class
+		self.name = 'WPA'  # human readable name, ideally matching filename, for this bag creating class
 		self.content_type = 'WSUDOR_Image'  # not required, but easy place to set the WSUDOR_ContentType
 
 		# passed
@@ -32,15 +52,13 @@ class BagClass(object):
 		
 		self.purge_bags = purge_bags
 
-		# derived
 		# MODS_handle (parsed with etree)
 		try:
 			MODS_tree = etree.fromstring(self.MODS)
-			MODS_root = self.MODS_handle.getroot()
-			ns = MODS_root.nsmap
+			ns = MODS_tree.nsmap
 			self.MODS_handle = MODS_root.xpath('//mods:mods', namespaces=ns)[0]
 		except:
-			print "could not parse MODS from DB string"			
+			print "could not parse MODS from DB string"		
 
 		# future
 		self.objMeta_handle = None
@@ -51,7 +69,7 @@ class BagClass(object):
 			# make root dir
 			os.mkdir(self.obj_dir)
 			# make data dir
-			os.mkdir("/".join([self.obj_dir,"datastreams"]))	
+			os.mkdir("/".join([self.obj_dir,"datastreams"]))
 
 
 	def _makeDatastream(self, each):
@@ -60,6 +78,8 @@ class BagClass(object):
 		datastreams_dir = self.obj_dir + "/datastreams"
 
 		filename = each["mets:fptr"]["@FILEID"]
+		label = each["@LABEL"]
+		order = each["@ORDER"]
 
 		# truncate datastream label to 100 characters
 		label = (self.object_title[:100] + '..') if len(self.object_title) > 100 else self.object_title
@@ -75,7 +95,7 @@ class BagClass(object):
 			"mimetype": mimetypes.types_map[ext],
 			"label": label,
 			"internal_relationships": {},
-			'order': 1
+			'order': order
 		}
 
 		self.objMeta_handle.datastreams.append(ds_dict)
@@ -84,7 +104,8 @@ class BagClass(object):
 		bag_location = datastreams_dir + "/" + filename
 
 		# determine remote_location by parsing filename		
-		filename_root = filename.split("vmc")[1]
+		filename_root = filename.split("wpa_")[1]
+		print "Looking for:", filename_root
 		
 		# get remote_location from 
 		fd = json.loads(self.object_row.job.file_index) # loads from MySQL
@@ -96,7 +117,9 @@ class BagClass(object):
 		os.symlink(remote_location, bag_location)
 
 		# Set the representative image for the object
-		self.objMeta_handle.isRepresentedBy = ds_id
+		if order == "1":
+			self.objMeta_handle.isRepresentedBy = ds_id
+
 
 	def createBag(self):
 
@@ -106,7 +129,6 @@ class BagClass(object):
 
 		# set identifier
 		self.full_identifier = self.DMDID
-
 		print self.full_identifier
 
 		# generate PID
@@ -127,14 +149,40 @@ class BagClass(object):
 		# Instantiate ObjMeta object
 		self.objMeta_handle = self.ObjMeta(**objMeta_primer)
 
-		# Parse struct map and building datstream dictionary
+		# determine if container or complex image
 		struct_map = json.loads(self.struct_map)
-		if type(struct_map["mets:div"]) is list:
-			for each in struct_map["mets:div"]:
-				self._makeDatastream(each)
 
+		# look for file parts one level down
+		# Parse struct map and build datstream dictionary
+		if type(struct_map["mets:div"]["mets:div"]) is list:
+			child_divs = struct_map["mets:div"]["mets:div"]			
 		else:
-			self._makeDatastream(struct_map["mets:div"])
+			child_divs = [struct_map["mets:div"]["mets:div"]]
+
+		# iterate through and look for fptr, assume container
+		fptr_found = False
+
+		for div in child_divs:
+			if 'mets:fptr' in div.keys():
+				print "fptr found!  must be image"
+				fptr_found = True				
+				break
+			
+		if fptr_found:
+			self.content_type = 'WSUDOR_Image'
+			self.objMeta_handle.content_type = self.content_type
+			# build datastreams
+			for div in child_divs:
+				self._makeDatastream(div)
+				
+		else:
+			self.content_type = 'WSUDOR_Container'
+			self.objMeta_handle.content_type = self.content_type
+			self.objMeta_handle.isRepresentedBy = False
+
+
+
+		print 'content type is: %s' % self.content_type
 
 		# write known relationships
 		self.objMeta_handle.object_relationships = [
@@ -155,6 +203,29 @@ class BagClass(object):
 				"object": "info:fedora/wayne:WSUDORSecurity-permit-apia-unrestricted"
 			}
 		]
+
+		# determine parent		
+		try:
+			# for each section of METS, break into chunks
+			METSroot = etree.fromstring(self.object_row.job.ingest_metadata.encode('utf-8'))
+			ns = METSroot.nsmap
+
+			# find node, then find parent DMDID, then grab PID from MySQL
+			self_node = METSroot.xpath('//mets:div[@DMDID="%s"]' % self.DMDID, namespaces=ns)[0]
+			parent = self_node.getparent()
+			parent_DMDID = parent.attrib['DMDID']
+			parent_obj = models.ingest_workspace_object.query.filter_by(job_id=self.object_row.job.id, DMDID=parent_DMDID).first()
+			parent_pid = parent_obj.pid
+			print "parent found %s / %s" % (parent_obj.object_title, parent_pid)
+		except:
+			print "Parent not found, setting collection PID"
+			parent_pid = "wayne:collection%s" % (self.collection_identifier)
+
+		# write parent
+		self.objMeta_handle.object_relationships.append({
+			"predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/hasParent",
+			"object": "info:fedora/%s" % parent_pid
+		})
 
 		# write to objMeta.json file
 		self.objMeta_handle.writeToFile("%s/objMeta.json" % (self.obj_dir))

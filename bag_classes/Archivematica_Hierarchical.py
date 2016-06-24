@@ -35,15 +35,13 @@ class BagClass(object):
 		
 		self.purge_bags = purge_bags
 
-		# derived
 		# MODS_handle (parsed with etree)
 		try:
-			MODS_tree = etree.fromtring(self.MODS)
-			MODS_root = self.MODS_handle.getroot()
-			ns = MODS_root.nsmap
+			MODS_tree = etree.fromstring(self.MODS)
+			ns = MODS_tree.nsmap
 			self.MODS_handle = MODS_root.xpath('//mods:mods', namespaces=ns)[0]
 		except:
-			print "could not parse MODS from DB string"			
+			print "could not parse MODS from DB string"		
 
 		# future
 		self.objMeta_handle = None
@@ -93,7 +91,7 @@ class BagClass(object):
 		# open mets		
 		temp_filename = '/tmp/Ouroboros/%s.xml' % uuid.uuid4()
 		with open(temp_filename, 'w') as fhand:
-			fhand.write(self.object_row.job.ingest_metadata)
+			fhand.write(self.object_row.job.ingest_metadata.encode('utf-8'))
 		mets = metsrw.METSDocument.fromfile(temp_filename)
 		os.remove(temp_filename)
 

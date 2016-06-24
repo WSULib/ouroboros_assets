@@ -32,15 +32,13 @@ class BagClass(object):
 		
 		self.purge_bags = purge_bags
 
-		# derived
 		# MODS_handle (parsed with etree)
-		# try:
-		MODS_tree = etree.fromtring(self.MODS)
-		MODS_root = self.MODS_handle.getroot()
-		ns = MODS_root.nsmap
-		self.MODS_handle = MODS_root.xpath('//mods:mods', namespaces=ns)[0]
-		# except:
-		# 	print "could not parse MODS from DB string"			
+		try:
+			MODS_tree = etree.fromstring(self.MODS)
+			ns = MODS_tree.nsmap
+			self.MODS_handle = MODS_root.xpath('//mods:mods', namespaces=ns)[0]
+		except:
+			print "could not parse MODS from DB string"
 
 		# future
 		self.objMeta_handle = None
@@ -91,9 +89,18 @@ class BagClass(object):
 
 		# collection art file
 		print "Looking in: %s" % self.files_location
-		art_files = [filename for filename in os.listdir(self.files_location) if filename.startswith("COLLECTIONART")]
+		
+		# get remote_location from 
+		fd = json.loads(self.object_row.job.file_index) # loads from MySQL
+
+		# find collection art
+		art_files = [ (k,fd[k]) for k in fd.keys() if k.startswith('COLLECTIONART') ]
+
 		if len(art_files) == 1:
-			filename = art_files[0]
+
+			print art_files[0]
+			
+			filename, remote_location = art_files[0]
 
 			label = "Collection Art"
 			order = 1
@@ -119,7 +126,6 @@ class BagClass(object):
 
 			# determine remote_location by parsing filename
 			filename_parts = filename.split("_")
-			remote_location = "/".join([ self.files_location, filename ])
 			os.symlink(remote_location, bag_location)
 			
 			# set as representative datastream
