@@ -1,4 +1,4 @@
-# Collection Object class
+# University Buildings
 
 import uuid, json, os
 import bagit
@@ -12,19 +12,9 @@ class BagClass(object):
 		
 	# class is expecting a healthy amount of input from `ingestWorkspace` script, and object row
 	def __init__(self, object_row, ObjMeta, bag_root_dir, files_location, purge_bags):
-		print "object_row"
-		print object_row
-		print "ObjMeta"
-		print ObjMeta
-		print "bag_root_dir"
-		print bag_root_dir
-		print "files_location"
-		print files_location
-		print "purge_bags"
-		print purge_bags
 		# hardcoded
-		self.name = 'Collection'  # human readable name, ideally matching filename, for this bag creating class
-		self.content_type = 'WSUDOR_Collection'  # not required, but easy place to set the WSUDOR_ContentType
+		self.name = 'UniversityBuildings'  # human readable name, ideally matching filename, for this bag creating class
+		self.content_type = 'WSUDOR_Image'  # not required, but easy place to set the WSUDOR_ContentType
 
 		# passed
 		self.object_row = object_row  # handle for object mysql row in 'ingest_workspace_object'
@@ -50,9 +40,52 @@ class BagClass(object):
 			# make root dir
 			os.mkdir(self.obj_dir)
 			# make data dir
-			os.mkdir("/".join([self.obj_dir,"datastreams"]))		
+			os.mkdir("/".join([self.obj_dir,"datastreams"]))	
 
 
+	def _makeDatastream(self, each):
+
+		# Identify datastreams folder
+		datastreams_dir = self.obj_dir + "/datastreams"
+
+		filename = each["mets:fptr"]["@FILEID"]
+
+		# truncate datastream label to 100 characters
+		label = (each["@LABEL"][:100] + '..') if len(each["@LABEL"]) > 100 else each["@LABEL"]
+
+		# get extension, ds_id
+		mimetypes.init()
+		ds_id, ext = os.path.splitext(filename)
+
+		# create datastream dictionary
+		ds_dict = {
+			"filename": filename,
+			"ds_id": ds_id,
+			"mimetype": mimetypes.types_map[ext],
+			"label": label,
+			"internal_relationships": {},
+			'order': 1
+		}
+
+		self.objMeta_handle.datastreams.append(ds_dict)
+
+		# make symlinks to datastreams on disk
+		bag_location = datastreams_dir + "/" + filename
+
+		# determine remote_location by parsing filename		
+		filename_root = filename
+		
+		# get remote_location from 
+		fd = json.loads(self.object_row.job.file_index) # loads from MySQL
+		filename_path = fd[filename_root]
+		print "target filename path is:",filename_path
+		remote_location = filename_path
+		
+		# create symlink
+		os.symlink(remote_location, bag_location)
+
+		# Set the representative image for the object
+		self.objMeta_handle.isRepresentedBy = ds_id
 
 	def createBag(self):
 
@@ -65,81 +98,38 @@ class BagClass(object):
 		print self.full_identifier
 
 		# generate PID
-		self.pid = "wayne:collection%s" % (self.full_identifier)
+		self.pid = "wayne:%s" % (self.full_identifier)
 
 		# write MODS
 		with open("%s/MODS.xml" % (self.obj_dir), "w") as fhand:
-			fhand.write(self.MODS)		
-	
+			fhand.write(self.MODS)
+
 		# instantiate object with quick variables
 		objMeta_primer = {
-			"id":self.pid,
-			"identifier":self.full_identifier,
-			"label":self.object_title,
-			"content_type":self.content_type
+			"id": self.pid,
+			"identifier": self.full_identifier,
+			"label": self.object_title,
+			"content_type": self.content_type
 		}
 
 		# Instantiate ObjMeta object
 		self.objMeta_handle = self.ObjMeta(**objMeta_primer)
 
-		################################################################
-		# set Collection Art
-		
-		# Identify datastreams folder
-		datastreams_dir = self.obj_dir + "/datastreams"
+		# Parse struct map and building datstream dictionary
+		struct_map = json.loads(self.struct_map)
+		if type(struct_map["mets:div"]) is list:
+			for each in struct_map["mets:div"]:
+				self._makeDatastream(each)
 
-		# collection art file
-		print "Looking in: %s" % self.files_location
-		
-		# get remote_location from 
-		fd = json.loads(self.object_row.job.file_index) # loads from MySQL
-
-		# find collection art
-		art_files = [ (k,fd[k]) for k in fd.keys() if k.startswith('COLLECTIONART') ]
-
-		if len(art_files) == 1:
-
-			print art_files[0]
-			
-			filename, remote_location = art_files[0]
-
-			label = "Collection Art"
-			order = 1
-
-			# get extension, ds_id
-			mimetypes.init()
-			ds_id, ext = os.path.splitext(filename)
-
-			# create datastream dictionary
-			ds_dict = {
-				"filename": filename,
-				"ds_id": 'COLLECTIONART',
-				"mimetype": mimetypes.types_map[ext],
-				"label": label,
-				"internal_relationships": {},
-				'order': order
-			}
-
-			self.objMeta_handle.datastreams.append(ds_dict)
-
-			# make symlinks to datastreams on disk
-			bag_location = datastreams_dir + "/" + filename
-
-			# determine remote_location by parsing filename
-			filename_parts = filename.split("_")
-			os.symlink(remote_location, bag_location)
-			
-			# set as representative datastream
-			self.objMeta_handle.isRepresentedBy = 'COLLECTIONART'
-		
 		else:
-			print "Could not locate Collection Art, skipping."
-		
-
-		################################################################		
+			self._makeDatastream(struct_map["mets:div"])
 
 		# write known relationships
 		self.objMeta_handle.object_relationships = [
+			{
+				"predicate": "info:fedora/fedora-system:def/relations-external#isMemberOfCollection",
+				"object": "info:fedora/wayne:collection%s" % (self.collection_identifier)
+			},
 			{
 				"predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/isDiscoverable",
 				"object": "info:fedora/True"
@@ -151,18 +141,17 @@ class BagClass(object):
 			{
 				"predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/hasSecurityPolicy",
 				"object": "info:fedora/wayne:WSUDORSecurity-permit-apia-unrestricted"
-			}		
+			}
 		]
 
-		# write to objMeta.json file 
+		# write to objMeta.json file
 		self.objMeta_handle.writeToFile("%s/objMeta.json" % (self.obj_dir))
 
 		# make bag
-		bag = bagit.make_bag(self.obj_dir, {
-			'Collection PID' : self.pid,
-			'Object PID' : self.pid
+		bagit.make_bag(self.obj_dir, {
+			'Collection PID': "wayne:collection"+self.collection_identifier,
+			'Object PID': self.pid
 		}, processes=1)
-
 
 		return self.obj_dir
 

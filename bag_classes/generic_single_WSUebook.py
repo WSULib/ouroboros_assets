@@ -4,6 +4,12 @@ import uuid, json, os
 import bagit
 from lxml import etree
 
+'''
+This can be rewritten, with some instructions for making the books on disk.  
+	- find root folder, assume ###.* book files there
+	- can clean up page number grabbing, where all end up starting with 1
+'''
+
 
 # define required `BagClass` class
 class BagClass(object):
@@ -13,7 +19,7 @@ class BagClass(object):
 	def __init__(self, object_row, ObjMeta, bag_root_dir, files_location, purge_bags):
 
 		# hardcoded
-		self.name = 'DSJ'  # human readable name, ideally matching filename, for this bag creating class
+		self.name = 'generic_single_WSUebook'  # human readable name, ideally matching filename, for this bag creating class
 		self.content_type = 'WSUDOR_WSUebook'  # not required, but easy place to set the WSUDOR_ContentType
 
 		# passed
@@ -29,7 +35,15 @@ class BagClass(object):
 		self.DMDID = object_row.DMDID  # object DMDID from METS, probabl identifier for file (but not required, might be in MODS)
 		self.collection_identifier = object_row.job.collection_identifier  # collection signifier, likely suffix to 'wayne:collection[THIS]'
 		
-		self.purge_bags = purge_bags		
+		self.purge_bags = purge_bags
+
+		# MODS_handle (parsed with etree)
+		MODS_root = etree.fromstring(self.MODS)	
+		ns = MODS_root.nsmap
+		self.MODS_handle = {
+			"MODS_element" : MODS_root.xpath('//mods:mods', namespaces=ns)[0],
+			"MODS_ns" : ns
+		}
 
 		# future
 		self.objMeta_handle = None
@@ -68,25 +82,15 @@ class BagClass(object):
 		identifier = self.MODS_handle['MODS_element'].xpath('//mods:identifier[@type="local"]', namespaces=self.MODS_handle['MODS_ns'])[0].text
 		print "identifier: %s" % identifier
 
-		# get volume / issue
-		volume = self.MODS_handle['MODS_element'].xpath('//mods:detail[@type="volume"]/mods:number', namespaces=self.MODS_handle['MODS_ns'])[0].text
-		issue = self.MODS_handle['MODS_element'].xpath('//mods:detail[@type="issue"]/mods:number', namespaces=self.MODS_handle['MODS_ns'])[0].text
-
-		# gen full identifier
-		self.full_identifier = "DSJv" + volume + "i" + issue + identifier
-		print "full identifier: %s " % self.full_identifier		
-
-		# get title for DSJ
+		# get title
 		book_title = self.MODS_handle['MODS_element'].xpath('mods:titleInfo/mods:title',namespaces=self.MODS_handle['MODS_ns'])[0].text
-		book_sub_title = self.MODS_handle['MODS_element'].xpath('mods:titleInfo/mods:subTitle',namespaces=self.MODS_handle['MODS_ns'])[0].text
-		full_title = " ".join([book_title,book_sub_title])
-		print "full title:",full_title
+		print "full title:",book_title
 
 		# instantiate object with quick variables
 		objMeta_primer = {
-			"id":PID,
-			"identifier":self.full_identifier,
-			"label":full_title,
+			"id":"wayne:%s" % identifier,
+			"identifier":identifier,
+			"label":book_title,
 			"content_type":self.content_type,
 			"image_filetype":"tif"
 		}
@@ -98,15 +102,11 @@ class BagClass(object):
 		print "creating symlinks and writing to objMeta"
 		print "looking in %s" % self.files_location
 
-		# find DSJ folder by walking input
-		identifier_suffix = identifier.split("DSJ")[1]
-		for root,dirs,files in os.walk(self.files_location):
-			for dir in dirs:
-				if dir.endswith(identifier_suffix):
-					d = "/".join([ root, dir ])
+		# get binary_files
+		d = self.files_location
 		print "target dir is %s" % d
 
-		binary_files = [ binary for binary in os.listdir(d) if not binary.startswith('DSJ') ]
+		binary_files = [ binary for binary in os.listdir(d) ]
 		binary_files.sort() #sort
 		for ebook_binary in binary_files:
 
@@ -121,7 +121,7 @@ class BagClass(object):
 
 			# get mimetype of file
 			filetype_hash = {
-				'tif': ('image/tiff','IMAGE'),
+				'tiff': ('image/tiff','IMAGE'),
 				'jpg': ('image/jpeg','IMAGE'),
 				'png': ('image/png','IMAGE'),
 				'xml': ('text/xml','ALTOXML'),
@@ -130,10 +130,14 @@ class BagClass(object):
 				'pdf': ('application/pdf','PDF')
 			}
 			filetype_tuple = filetype_hash[ebook_binary.split(".")[-1]] 		
-			try:	
-				page_num = ebook_binary.split(".")[0].split("_")[2].split("pg")[1].lstrip('0')
-			except:
-				page_num = ebook_binary.split(".")[0].split("_")[2].lstrip('0')
+			
+
+			# determine page num			
+			page_num = ebook_binary.split(".")[0].lstrip('0')
+			if page_num == '':
+				page_num = '1'
+			else:
+				page_num = str(int(page_num) + 1)
 
 			# write to datastreams list		
 			ds_dict = {
@@ -160,10 +164,6 @@ class BagClass(object):
 		self.objMeta_handle.object_relationships = [				
 			{
 				"predicate": "info:fedora/fedora-system:def/relations-external#isMemberOfCollection",
-				"object": "info:fedora/wayne:collection%s" % (self.collection_identifier)
-			},
-			{
-				"predicate": "info:fedora/fedora-system:def/relations-external#isMemberOfCollection",
 				"object": "info:fedora/wayne:collectionWSUebooks"
 			},			
 			{
@@ -177,15 +177,7 @@ class BagClass(object):
 			{
 				"predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/hasSecurityPolicy",
 				"object": "info:fedora/wayne:WSUDORSecurity-permit-apia-unrestricted"
-			},
-			{
-				"predicate": "info:fedora/fedora-system:def/relations-external#hasContentModel",
-				"object": "info:fedora/CM:Issue"
-			},
-			{
-				"predicate": "info:fedora/fedora-system:def/relations-external#isMemberOf",
-				"object": "info:fedora/wayne:DSJv" + volume
-			}	
+			}
 		]
 
 		# write to objMeta.json file 
@@ -193,7 +185,7 @@ class BagClass(object):
 
 		# make bag
 		bag = bagit.make_bag(self.obj_dir, {
-			'Collection PID' : "wayne:collection"+self.collection_identifier,
+			'Collection PID' : "wayne:collectionWSUebooks",
 			'Object PID' : self.pid
 		}, processes=1)
 
