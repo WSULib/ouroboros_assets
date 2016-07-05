@@ -32,6 +32,7 @@ class BagClass(object):
 		self.object_title = (object_row.object_title[:100] + '..') if len(object_row.object_title) > 100 else object_row.object_title
 		self.DMDID = object_row.DMDID  # object DMDID from METS, probabl identifier for file (but not required, might be in MODS)
 		self.collection_identifier = object_row.job.collection_identifier  # collection signifier, likely suffix to 'wayne:collection[THIS]'
+		self.object_type = object_row.object_type
 		
 		self.purge_bags = purge_bags
 
