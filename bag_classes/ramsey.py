@@ -3,6 +3,7 @@
 import uuid, json, os
 import bagit
 from lxml import etree
+from sets import Set
 
 '''
 This can be rewritten, with some instructions for making the books on disk.  
@@ -62,6 +63,9 @@ class BagClass(object):
 		'''
 		Function to create bag given inputs.  Most extensive and complex part of this class.
 		'''
+
+		# list of page nums and datastream filenames tuples
+		page_num_list = []
 
 		# set identifier
 		self.full_identifier = self.DMDID
@@ -136,38 +140,46 @@ class BagClass(object):
 			}
 			filetype_tuple = filetype_hash[ebook_binary.split(".")[-1]] 		
 			
-			# determine page num			
+			# determine page num and DS ID
 			page_num = ebook_binary.split(".")[0].lstrip('0')
 			if page_num == '':
-				page_num = '1'			
+				page_num = '1'
+
+			ds_id = filetype_tuple[1]+"_"+page_num
+
+			# push to image num list
+			if filetype_tuple[1] == 'IMAGE':
+				page_num_list.append((int(page_num), ds_id))
 
 			# write to datastreams list		
 			ds_dict = {
 				"filename":ebook_binary,
-				"ds_id":filetype_tuple[1]+"_"+page_num,
+				"ds_id":ds_id,
 				"mimetype":filetype_tuple[0], # generate dynamically based on file extension
-				"label":filetype_tuple[1]+"_"+page_num,
+				"label":ds_id,
 				"internal_relationships":{},
 				'order':page_num			
 			}
 			self.objMeta_handle.datastreams.append(ds_dict)
 
-			# set isRepresentedBy relationsihp
-			'''
-			This is problematic if missing the first page...
-			'''
-			if page_num == "1" and filetype_tuple[1] == 'IMAGE':
-				self.objMeta_handle.isRepresentedBy = ds_dict['ds_id']
-
-
-		################################################################		
+		# set isRepresentedBy relationsihp
+		'''
+		Sort list of page numbers, use lowest.
+		'''		
+		page_num_list.sort()
+		print "Setting is represented to page num %s, ds_id %s" % page_num_list[0]
+		self.objMeta_handle.isRepresentedBy = page_num_list[0][1]
 
 		# write known relationships
 		self.objMeta_handle.object_relationships = [				
 			{
 				"predicate": "info:fedora/fedora-system:def/relations-external#isMemberOfCollection",
 				"object": "info:fedora/wayne:collectionWSUebooks"
-			},			
+			},
+			{
+				"predicate": "info:fedora/fedora-system:def/relations-external#isMemberOfCollection",
+				"object": "info:fedora/wayne:collection%s" % (self.collection_identifier)
+			},
 			{
 				"predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/isDiscoverable",
 				"object": "info:fedora/True"
