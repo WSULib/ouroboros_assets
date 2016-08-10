@@ -2,6 +2,7 @@
 
 import uuid, json, os
 import bagit
+from inc import WSUDOR_bagger
 from lxml import etree
 
 
@@ -29,7 +30,15 @@ class BagClass(object):
 		self.DMDID = object_row.DMDID  # object DMDID from METS, probabl identifier for file (but not required, might be in MODS)
 		self.collection_identifier = object_row.job.collection_identifier  # collection signifier, likely suffix to 'wayne:collection[THIS]'
 		
-		self.purge_bags = purge_bags		
+		self.purge_bags = purge_bags
+
+		# MODS_handle (parsed with etree)
+		MODS_root = etree.fromstring(self.MODS)	
+		ns = MODS_root.nsmap
+		self.MODS_handle = {
+			"MODS_element" : MODS_root.xpath('//mods:mods', namespaces=ns)[0],
+			"MODS_ns" : ns
+		}
 
 		# future
 		self.objMeta_handle = None
@@ -40,7 +49,7 @@ class BagClass(object):
 			# make root dir
 			os.mkdir(self.obj_dir)
 			# make data dir
-			os.mkdir("/".join([self.obj_dir,"datastreams"]))		
+			os.mkdir("/".join([self.obj_dir,"datastreams"]))	
 
 
 	def createBag(self):
@@ -59,7 +68,6 @@ class BagClass(object):
 		# write MODS
 		with open("%s/MODS.xml" % (self.obj_dir), "w") as fhand:
 			fhand.write(self.MODS)
-
 
 		# construct
 		################################################################
@@ -84,7 +92,7 @@ class BagClass(object):
 
 		# instantiate object with quick variables
 		objMeta_primer = {
-			"id":PID,
+			"id":"wayne:%s" % (self.full_identifier),
 			"identifier":self.full_identifier,
 			"label":full_title,
 			"content_type":self.content_type,
@@ -113,6 +121,8 @@ class BagClass(object):
 			# skip some undesirables
 			if ebook_binary == ".DS_Store" or ebook_binary.endswith('bak') or ebook_binary == "Thumbs.db":
 				continue
+
+			print "working on %s" % ebook_binary
 
 			# write symlink
 			source = "/".join([ d, ebook_binary ])
@@ -191,11 +201,17 @@ class BagClass(object):
 		# write to objMeta.json file 
 		self.objMeta_handle.writeToFile("%s/objMeta.json" % (self.obj_dir))
 
-		# make bag
-		bag = bagit.make_bag(self.obj_dir, {
+		# # make bag
+		# bag = bagit.make_bag(self.obj_dir, {
+		# 	'Collection PID' : "wayne:collection"+self.collection_identifier,
+		# 	'Object PID' : self.pid
+		# }, processes=1)
+
+		# use WSUDOR bagger (NO MD5 CHECKSUMS)
+		bag = WSUDOR_bagger.make_bag(self.obj_dir, {
 			'Collection PID' : "wayne:collection"+self.collection_identifier,
 			'Object PID' : self.pid
-		}, processes=1)
+		})
 
 		# because ingestWorkspace() picks up from here, simply return bag location
 		return self.obj_dir

@@ -2,6 +2,7 @@
 
 import uuid, json, os
 import bagit
+from inc import WSUDOR_bagger
 from lxml import etree
 from sets import Set
 
@@ -10,7 +11,6 @@ This can be rewritten, with some instructions for making the books on disk.
 	- find root folder, assume ###.* book files there
 	- can clean up page number grabbing, where all end up starting with 1
 '''
-
 
 # define required `BagClass` class
 class BagClass(object):
@@ -118,7 +118,7 @@ class BagClass(object):
 		for ebook_binary in binary_files:
 
 			# skip some undesirables
-			if ebook_binary == ".DS_Store" or ebook_binary.endswith('bak') or ebook_binary == "Thumbs.db":
+			if ebook_binary == ".DS_Store" or ebook_binary.endswith('bak') or ebook_binary == "Thumbs.db" or ebook_binary.endswith('png'):
 				continue
 
 			# write symlink
@@ -198,10 +198,16 @@ class BagClass(object):
 		self.objMeta_handle.writeToFile("%s/objMeta.json" % (self.obj_dir))
 
 		# make bag
-		bag = bagit.make_bag(self.obj_dir, {
+		# bag = bagit.make_bag(self.obj_dir, {
+		# 	'Collection PID' : "wayne:collectionWSUebooks",
+		# 	'Object PID' : self.pid
+		# }, processes=1)
+		
+		# use WSUDOR bagger (NO MD5 CHECKSUMS)
+		bag = WSUDOR_bagger.make_bag(self.obj_dir, {
 			'Collection PID' : "wayne:collectionWSUebooks",
 			'Object PID' : self.pid
-		}, processes=1)
+		})
 
 		# because ingestWorkspace() picks up from here, simply return bag location
 		return self.obj_dir
