@@ -118,7 +118,7 @@ class BagClass(object):
 		for ebook_binary in binary_files:
 
 			# skip some undesirables
-			if ebook_binary == ".DS_Store" or ebook_binary.endswith('bak') or ebook_binary == "Thumbs.db" or ebook_binary.endswith('png'):
+			if ebook_binary == ".DS_Store" or ebook_binary.endswith('bak') or ebook_binary == "Thumbs.db" or ebook_binary.endswith('png') or ebook_binary.startswith('._'):
 				continue
 
 			# write symlink
