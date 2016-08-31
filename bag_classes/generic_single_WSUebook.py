@@ -2,14 +2,13 @@
 
 import uuid, json, os
 import bagit
+from inc import WSUDOR_bagger
 from lxml import etree
+from sets import Set
 
 '''
-This can be rewritten, with some instructions for making the books on disk.  
-	- find root folder, assume ###.* book files there
-	- can clean up page number grabbing, where all end up starting with 1
+Assuming self.file_location is directory of loose files from Abbyy
 '''
-
 
 # define required `BagClass` class
 class BagClass(object):
@@ -19,7 +18,7 @@ class BagClass(object):
 	def __init__(self, object_row, ObjMeta, bag_root_dir, files_location, purge_bags):
 
 		# hardcoded
-		self.name = 'generic_single_WSUebook'  # human readable name, ideally matching filename, for this bag creating class
+		self.name = 'generic_single'  # human readable name, ideally matching filename, for this bag creating class
 		self.content_type = 'WSUDOR_WSUebook'  # not required, but easy place to set the WSUDOR_ContentType
 
 		# passed
@@ -63,12 +62,16 @@ class BagClass(object):
 		Function to create bag given inputs.  Most extensive and complex part of this class.
 		'''
 
+		# list of page nums and datastream filenames tuples
+		page_num_list = []
+
 		# set identifier
 		self.full_identifier = self.DMDID
 		print self.full_identifier
 
 		# generate PID
 		self.pid = "wayne:%s" % (self.full_identifier)
+		self.object_row.pid = self.pid
 
 		# write MODS
 		with open("%s/MODS.xml" % (self.obj_dir), "w") as fhand:
@@ -88,7 +91,7 @@ class BagClass(object):
 
 		# instantiate object with quick variables
 		objMeta_primer = {
-			"id":"wayne:%s" % identifier,
+			"id":self.pid,
 			"identifier":identifier,
 			"label":book_title,
 			"content_type":self.content_type,
@@ -102,16 +105,23 @@ class BagClass(object):
 		print "creating symlinks and writing to objMeta"
 		print "looking in %s" % self.files_location
 
-		# get binary_files
-		d = self.files_location
-		print "target dir is %s" % d
+		# get binary_files location
+		if self.files_location.endswith('/'):
+			d = self.files_location[:-1]
+		else:
+			d = self.files_location
 
 		binary_files = [ binary for binary in os.listdir(d) ]
 		binary_files.sort() #sort
 		for ebook_binary in binary_files:
 
 			# skip some undesirables
-			if ebook_binary == ".DS_Store" or ebook_binary.endswith('bak') or ebook_binary == "Thumbs.db":
+			if ebook_binary == ".DS_Store" \
+			or ebook_binary.endswith('bak') \
+			or ebook_binary == "Thumbs.db" \
+			or ebook_binary.endswith('png') \
+			or ebook_binary.startswith('._') \
+			or ebook_binary.endswith('txt'):
 				continue
 
 			# write symlink
@@ -122,7 +132,9 @@ class BagClass(object):
 			# get mimetype of file
 			filetype_hash = {
 				'tiff': ('image/tiff','IMAGE'),
+				'tif': ('image/tiff','IMAGE'),
 				'jpg': ('image/jpeg','IMAGE'),
+				'jpeg': ('image/jpeg','IMAGE'),
 				'png': ('image/png','IMAGE'),
 				'xml': ('text/xml','ALTOXML'),
 				'html': ('text/html','HTML'),
@@ -131,41 +143,46 @@ class BagClass(object):
 			}
 			filetype_tuple = filetype_hash[ebook_binary.split(".")[-1]] 		
 			
-
-			# determine page num			
+			# determine page num and DS ID
 			page_num = ebook_binary.split(".")[0].lstrip('0')
 			if page_num == '':
 				page_num = '1'
-			else:
-				page_num = str(int(page_num) + 1)
+
+			ds_id = filetype_tuple[1]+"_"+page_num
+
+			# push to image num list
+			if filetype_tuple[1] == 'IMAGE':
+				page_num_list.append((int(page_num), ds_id))
 
 			# write to datastreams list		
 			ds_dict = {
 				"filename":ebook_binary,
-				"ds_id":filetype_tuple[1]+"_"+page_num,
+				"ds_id":ds_id,
 				"mimetype":filetype_tuple[0], # generate dynamically based on file extension
-				"label":filetype_tuple[1]+"_"+page_num,
+				"label":ds_id,
 				"internal_relationships":{},
 				'order':page_num			
 			}
 			self.objMeta_handle.datastreams.append(ds_dict)
 
-			# set isRepresentedBy relationsihp
-			'''
-			This is problematic if missing the first page...
-			'''
-			if page_num == "1" and filetype_tuple[1] == 'IMAGE':
-				self.objMeta_handle.isRepresentedBy = ds_dict['ds_id']
-
-
-		################################################################		
+		# set isRepresentedBy relationsihp
+		'''
+		Sort list of page numbers, use lowest.
+		'''		
+		page_num_list.sort()
+		print "Setting is represented to page num %s, ds_id %s" % page_num_list[0]
+		self.objMeta_handle.isRepresentedBy = page_num_list[0][1]
 
 		# write known relationships
 		self.objMeta_handle.object_relationships = [				
 			{
 				"predicate": "info:fedora/fedora-system:def/relations-external#isMemberOfCollection",
 				"object": "info:fedora/wayne:collectionWSUebooks"
-			},			
+			},
+			{
+				"predicate": "info:fedora/fedora-system:def/relations-external#isMemberOfCollection",
+				"object": "info:fedora/wayne:collection%s" % (self.collection_identifier)
+			},
 			{
 				"predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/isDiscoverable",
 				"object": "info:fedora/True"
@@ -182,12 +199,12 @@ class BagClass(object):
 
 		# write to objMeta.json file 
 		self.objMeta_handle.writeToFile("%s/objMeta.json" % (self.obj_dir))
-
-		# make bag
-		bag = bagit.make_bag(self.obj_dir, {
+		
+		# use WSUDOR bagger (NO MD5 CHECKSUMS)
+		bag = WSUDOR_bagger.make_bag(self.obj_dir, {
 			'Collection PID' : "wayne:collectionWSUebooks",
 			'Object PID' : self.pid
-		}, processes=1)
+		})
 
 		# because ingestWorkspace() picks up from here, simply return bag location
 		return self.obj_dir
