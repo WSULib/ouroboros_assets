@@ -7,6 +7,7 @@ import mimetypes
 import metsrw
 
 from WSUDOR_Manager import utilities
+from inc import WSUDOR_bagger
 
 
 # define required `BagClass` class
@@ -79,9 +80,58 @@ class BagClass(object):
 		# Instantiate ObjMeta object
 		self.objMeta_handle = self.ObjMeta(**objMeta_primer)
 
-
-		################################################################################################################
 		
+		# determine if physical or intellectual processing
+		if self.object_type in ['Item','Directory']:
+			result = self._createBag_physical()
+		elif self.object_type in ['Intellectual']:
+			result = self._createBag_intellectual()
+		else:
+			print "object_type %s not understood, cancelling" % self.object_type
+			return False
+
+		# write known relationships
+		add_rels = [
+			{
+				"predicate": "info:fedora/fedora-system:def/relations-external#isMemberOfCollection",
+				"object": "info:fedora/wayne:collection%s" % (self.collection_identifier)
+			},
+			{
+				"predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/isDiscoverable",
+				"object": "info:fedora/True"
+			},
+			{
+				"predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/preferredContentModel",
+				"object": "info:fedora/CM:%s" % (self.content_type.split("_")[1])
+			},
+			{
+				"predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/hasSecurityPolicy",
+				"object": "info:fedora/wayne:WSUDORSecurity-permit-apia-unrestricted"
+			}
+		]
+		for rel in add_rels:
+			self.objMeta_handle.object_relationships.append(rel)
+
+		# update id and identifier from pid
+		self.objMeta_handle.id = self.pid
+		self.objMeta_handle.identifier = self.pid.split(":")[-1]
+
+		# write to objMeta.json file
+		self.objMeta_handle.writeToFile("%s/objMeta.json" % (self.obj_dir))
+
+		# use WSUDOR bagger (NO MD5 CHECKSUMS)
+		bag = WSUDOR_bagger.make_bag(self.obj_dir, {
+			'Collection PID' : "wayne:collection"+self.collection_identifier,
+			'Object PID' : self.pid
+		})
+
+		return self.obj_dir
+
+	############################################################
+	# Archivematica / Physical Object
+	############################################################
+	def _createBag_physical(self):
+
 		# set namespaces
 		ns = {
 			'mets':'http://www.loc.gov/METS/',
@@ -96,7 +146,7 @@ class BagClass(object):
 		mets = metsrw.METSDocument.fromfile(temp_filename)
 		os.remove(temp_filename)
 
-		# Build datstream dictionary
+		# Build datastream dictionary
 		fs = fsByLabel(mets,self.object_title)
 
 		# determine parent
@@ -109,16 +159,15 @@ class BagClass(object):
 
 		# write parent
 		self.objMeta_handle.object_relationships.append({
-			"predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/hasParent",
+			"predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/hasPhysicalParent",
 			"object": "info:fedora/%s" % parent_pid
 		})
 
-		
 		# for "Directory" types
 		'''
 		Has much less information than files, but does include parent
 		'''
-		if self.object_type == "Directory":
+		if self.object_type == 'Directory':
 			
 			# set content types
 			self.content_type = "WSUDOR_Container"
@@ -132,6 +181,9 @@ class BagClass(object):
 		With binary files, comes more information.  We can derive mimetype, and thus ContentType, from the fits metadata"
 		'''
 		if self.object_type == "Item":
+
+			# remove file suffix from PID
+			self.pid = "_".join(self.pid.split("_")[:-1])
 
 			# determine mimetype
 
@@ -157,7 +209,7 @@ class BagClass(object):
 				print "Could not determine mime type of file from Archivematica output, attempting file extension"
 
 				# get file extension
-				file_ext = fs.path.split(".")[-1]
+				file_ext = fs.path.split(".")[-1]				
 
 				# use mimetypes library
 				mimetypes.init()
@@ -174,41 +226,55 @@ class BagClass(object):
 			# write datastream
 			self._makeDatastream(fs)
 
-		################################################################################################################
 
+	############################################################
+	# Intellectual Object
+	############################################################
+	def _createBag_intellectual(self):
 
-		# write known relationships
-		add_rels = [
-			{
-				"predicate": "info:fedora/fedora-system:def/relations-external#isMemberOfCollection",
-				"object": "info:fedora/wayne:collection%s" % (self.collection_identifier)
-			},
-			{
-				"predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/isDiscoverable",
-				"object": "info:fedora/True"
-			},
-			{
-				"predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/preferredContentModel",
-				"object": "info:fedora/CM:%s" % (self.content_type.split("_")[1])
-			},
-			{
-				"predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/hasSecurityPolicy",
-				"object": "info:fedora/wayne:WSUDORSecurity-permit-apia-unrestricted"
-			}
-		]
-		for rel in add_rels:
-			self.objMeta_handle.object_relationships.append(rel)
+		ns = {
+			'mets':'http://www.loc.gov/METS/'
+		}
 
-		# write to objMeta.json file
-		self.objMeta_handle.writeToFile("%s/objMeta.json" % (self.obj_dir))
+		# set content type
+		self.content_type = "WSUDOR_Container"
+		self.objMeta_handle.content_type = self.content_type
 
-		# make bag
-		bagit.make_bag(self.obj_dir, {
-			'Collection PID': "wayne:collection"+self.collection_identifier,
-			'Object PID': self.pid
-		}, processes=1)
+		# set isRepresentedBy
+		self.objMeta_handle.isRepresentedBy = False
 
-		return self.obj_dir
+		# if Intellectual object, change to anticipated PID
+		if self.object_type == 'collection':
+			id_prefix = 'collection'
+		else:
+			id_prefix = ''
+		self.pid = 'wayne:%s%s%s' % (id_prefix, self.collection_identifier, self.DMDID.split("aem_prefix_")[-1])
+
+		# open WSU enrichment METS
+		enrichment_METS = etree.fromstring(self.object_row.job.enrichment_metadata.encode('utf-8'))
+
+		# get parent, else default to collection
+		try:
+			self_div = enrichment_METS.xpath('//mets:div[@DMDID="%s"]' % (self.DMDID), namespaces=ns)[0]
+			parent_div = self_div.getparent()
+			parent_DMDID = parent_div.attrib['DMDID']
+			parent_pid = 'wayne:%s%s%s' % (id_prefix, self.collection_identifier, parent_DMDID.split("aem_prefix_")[-1])		
+			print "Anticipating parent pid: %s" % parent_pid
+			self.objMeta_handle.object_relationships.append({
+				"predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/hasParent",
+				"object": "info:fedora/%s" % parent_pid
+			})
+
+		except:
+			print "Parent DMDID not found in enrichment METS"
+			if self.object_type == 'collection':
+				parent_pid = "wayne:collection%s" % (self.collection_identifier)
+				self.objMeta_handle.object_relationships.append({
+					"predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/hasParent",
+					"object": "info:fedora/%s" % parent_pid
+				})	
+			else:
+				print "skipping parent PID"			
 
 
 	# helper function to build datastream directory
