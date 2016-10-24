@@ -113,6 +113,7 @@ class BagClass(object):
 
 		binary_files = [ binary for binary in os.listdir(d) ]
 		binary_files.sort() #sort
+		page_num_bump = 0
 		for ebook_binary in binary_files:
 
 			# skip some undesirables
@@ -146,7 +147,9 @@ class BagClass(object):
 			# determine page num and DS ID
 			page_num = ebook_binary.split(".")[0].lstrip('0')
 			if page_num == '':
-				page_num = '1'
+				page_num_bump = 1
+				page_num = '0'
+			page_num = str(int(page_num) + int(page_num_bump))
 
 			ds_id = filetype_tuple[1]+"_"+page_num
 
