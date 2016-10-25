@@ -60,11 +60,15 @@ class BagClass(object):
 	# method to create bag
 	def createBag(self):
 
-		# set identifier with filename		
-		self.full_identifier = self.collection_identifier+self.object_title.replace(".","_")
+		if not self.object_row.aem_enriched:
+			# set identifier with filename
+			self.full_identifier = self.collection_identifier+self.object_title.replace(".","_")
 
-		# generate PID
-		self.pid = "wayne:%s" % (self.full_identifier)
+			# generate PID
+			self.pid = "wayne:%s" % (self.full_identifier)
+		else:			
+			self.pid = self.object_row.pid
+			self.full_identifier = self.pid.split("wayne:")[-1]
 
 		# write MODS
 		with open("%s/MODS.xml" % (self.obj_dir), "w") as fhand:
@@ -79,7 +83,6 @@ class BagClass(object):
 
 		# Instantiate ObjMeta object
 		self.objMeta_handle = self.ObjMeta(**objMeta_primer)
-
 		
 		# determine if physical or intellectual processing
 		if self.object_type in ['Item','Directory']:
@@ -140,14 +143,24 @@ class BagClass(object):
 		}		
 
 		# open mets		
-		temp_filename = '/tmp/Ouroboros/%s.xml' % uuid.uuid4()
-		with open(temp_filename, 'w') as fhand:
-			fhand.write(self.object_row.job.ingest_metadata.encode('utf-8'))
-		mets = metsrw.METSDocument.fromfile(temp_filename)
-		os.remove(temp_filename)
+		if not self.object_row.metsrw_parsed:
+			print "##################### could not find parsed METS, parsing now"
+			temp_filename = '/tmp/Ouroboros/%s.xml' % uuid.uuid4()
+			with open(temp_filename, 'w') as fhand:
+				fhand.write(self.object_row.job.ingest_metadata.encode('utf-8'))
+			mets = metsrw.METSDocument.fromfile(temp_filename)
+			os.remove(temp_filename)
+		else:
+			mets = self.object_row.metsrw_parsed
 
 		# Build datastream dictionary
-		fs = fsByLabel(mets,self.object_title)
+		'''
+		Use label instead, as object_title might update?
+		'''
+		label = json.loads(self.struct_map)['ns0:div']['@LABEL']
+		fs = fsByLabel(mets, label)
+		# fs = fsByLabel(mets, self.object_title)
+		print fs
 
 		# determine parent
 		try:
@@ -162,6 +175,36 @@ class BagClass(object):
 			"predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/hasPhysicalParent",
 			"object": "info:fedora/%s" % parent_pid
 		})
+
+		##########################################################################################
+		# open WSU enrichment METS
+		if self.object_row.aem_enriched:
+			id_prefix = ''
+			enrichment_METS = etree.fromstring(self.object_row.job.enrichment_metadata.encode('utf-8'))
+			# get parent, else default to collection
+			# try:
+			print "Looking for %s to determine parent" % self.DMDID
+			self_div = enrichment_METS.xpath('//mets:div[@DMDID="%s"]' % (self.DMDID), namespaces=ns)[0]
+			parent_div = self_div.getparent()
+			parent_DMDID = parent_div.attrib['DMDID']
+			parent_pid = 'wayne:%s%s%s' % (id_prefix, self.collection_identifier, parent_DMDID.split("aem_prefix_")[-1])		
+			print "Anticipating and setting hasParent pid: %s" % parent_pid
+			self.objMeta_handle.object_relationships.append({
+				"predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/hasParent",
+				"object": "info:fedora/%s" % parent_pid
+			})
+
+			# except:
+			# 	print "Parent DMDID not found in enrichment METS"
+			# 	if self.object_type == 'collection':
+			# 		parent_pid = "wayne:collection%s" % (self.collection_identifier)
+			# 		self.objMeta_handle.object_relationships.append({
+			# 			"predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/hasParent",
+			# 			"object": "info:fedora/%s" % parent_pid
+			# 		})	
+			# 	else:
+			# 		print "skipping parent PID"	
+		##########################################################################################
 
 		# for "Directory" types
 		'''
@@ -183,7 +226,8 @@ class BagClass(object):
 		if self.object_type == "Item":
 
 			# remove file suffix from PID
-			self.pid = "_".join(self.pid.split("_")[:-1])
+			if not self.object_row.aem_enriched:			
+				self.pid = "_".join(self.pid.split("_")[:-1])
 
 			# determine mimetype
 
