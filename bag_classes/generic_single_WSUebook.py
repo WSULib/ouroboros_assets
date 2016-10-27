@@ -183,10 +183,6 @@ class BagClass(object):
 				"object": "info:fedora/wayne:collectionWSUebooks"
 			},
 			{
-				"predicate": "info:fedora/fedora-system:def/relations-external#isMemberOfCollection",
-				"object": "info:fedora/wayne:collection%s" % (self.collection_identifier)
-			},
-			{
 				"predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/isDiscoverable",
 				"object": "info:fedora/True"
 			},
@@ -199,6 +195,15 @@ class BagClass(object):
 				"object": "info:fedora/wayne:WSUDORSecurity-permit-apia-unrestricted"
 			}
 		]
+
+		# if collection identifier is not "Undefined"
+		if self.collection_identifier != "Undefined":
+			self.objMeta_handle.object_relationships.append(
+				{
+					"predicate": "info:fedora/fedora-system:def/relations-external#isMemberOfCollection",
+					"object": "info:fedora/wayne:collection%s" % (self.collection_identifier)
+				}
+			)
 
 		# write to objMeta.json file 
 		self.objMeta_handle.writeToFile("%s/objMeta.json" % (self.obj_dir))
