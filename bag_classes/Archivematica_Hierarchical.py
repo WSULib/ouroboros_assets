@@ -186,7 +186,7 @@ class BagClass(object):
 			self_div = enrichment_METS.xpath('//mets:div[@DMDID="%s"]' % (self.DMDID), namespaces=ns)[0]
 			parent_div = self_div.getparent()
 			parent_DMDID = parent_div.attrib['DMDID']
-			parent_pid = 'wayne:%s%s%s' % (self.collection_identifier, parent_DMDID.split("aem_prefix_")[-1].replace(".","_"))		
+			parent_pid = 'wayne:%s%s' % (self.collection_identifier, parent_DMDID.split("aem_prefix_")[-1].replace(".","_"))		
 			print "Anticipating and setting hasParent pid: %s" % parent_pid
 			self.objMeta_handle.object_relationships.append({
 				"predicate": "http://digital.library.wayne.edu/fedora/objects/wayne:WSUDOR-Fedora-Relations/datastreams/RELATIONS/content/hasParent",
