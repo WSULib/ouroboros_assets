@@ -6,7 +6,7 @@ from lxml import etree
 import mimetypes
 import metsrw
 
-from WSUDOR_Manager import utilities
+from WSUDOR_Manager import utilities, models
 from inc import WSUDOR_bagger
 
 
@@ -56,12 +56,14 @@ class BagClass(object):
 			# make data dir
 			os.mkdir("/".join([self.obj_dir,"datastreams"]))	
 
-
 		# attempt to grab intellectual type
 		if 'mets:div' in self.struct_map:
 			self.intellectual_type = self.struct_map['mets:div']['@TYPE']
+		elif 'ns0:div' in self.struct_map:
+			self.intellectual_type = self.struct_map['ns0:div']['@TYPE']
 		else:
-			self.intellectual_type = 'item'
+			self.intellectual_type = 'Item'
+		self.intellectual_type = self.intellectual_type.lower()
 
 		# set collection pid
 		self.collection_pid = "wayne:collection%s" % self.collection_identifier
@@ -75,25 +77,42 @@ class BagClass(object):
 	# method to create bag
 	def createBag(self):
 
-		# if not self.object_row.aem_enriched:
-		# set identifier with filename
-		self.full_identifier = self.collection_identifier+self.object_title.replace(".","_")
+		if not self.object_row.aem_enriched:
+			# set identifier with filename
+			self.full_identifier = self.collection_identifier+self.object_title.replace(".","_")
 
-		# generate PID
-		self.pid = "wayne:%s" % (self.full_identifier)
+			# generate PID
+			self.pid = "wayne:%s" % (self.full_identifier)
 
-		# set collection pid to collection_identifier
-		if self.intellectual_type == 'collection':
-			print "setting collection pid special"
-			self.pid = self.collection_pid
+			# set collection pid to collection_identifier
+			if self.intellectual_type == 'collection':
+				print "setting collection pid special"
+				self.pid = self.collection_pid
 
-		# else:			
-		# 	self.pid = self.object_row.pid
-		# 	self.full_identifier = self.pid.split("wayne:")[-1]
+		else:			
+
+			self.pid = self.object_row.pid
+
+			# set collection pid to collection_identifier
+			if self.intellectual_type == 'collection':
+				print "setting collection pid special"
+				self.pid = self.collection_pid
+
+			self.full_identifier = self.pid.split("wayne:")[-1]
 
 		# write MODS
 		with open("%s/MODS.xml" % (self.obj_dir), "w") as fhand:
 			fhand.write(self.MODS)
+
+		# write PREMIS datastream
+		# write MODS
+		if self.intellectual_type == 'Item':
+			with open("%s/PREMIS.xml" % (self.obj_dir), "w") as fhand:
+				# isntantiate PREMISClient
+				pc = models.PREMISClient()
+				for event in json.loads(self.object_row.premis_events):
+					pc.add_event_xml(event)
+				fhand.write(pc.as_string(pretty_print=False))
 
 		# instantiate object with quick variables
 		objMeta_primer = {
@@ -309,10 +328,11 @@ class BagClass(object):
 			self_div = enrichment_METS.xpath('//mets:div[@DMDID="%s"]' % (self.DMDID), namespaces=ns)[0]
 			parent_div = self_div.getparent()
 			parent_DMDID = parent_div.attrib['DMDID']
-			parent_pid = 'wayne:%s%s%s' % (id_prefix, self.collection_identifier, parent_DMDID.split("aem_prefix_")[-1])		
+			parent_pid = 'wayne:%s%s' % (self.collection_identifier, parent_DMDID.split("aem_prefix_")[-1])		
 			print "Anticipating parent pid: %s" % parent_pid
 
 			if self.intellectual_type == 'series':
+				print "series detected, pointing parent at collection object"
 				parent_pid = self.collection_pid
 
 			self.objMeta_handle.object_relationships.append({
