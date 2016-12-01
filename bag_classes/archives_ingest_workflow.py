@@ -65,13 +65,13 @@ class BagClass(object):
 			self.intellectual_type = 'Item'
 		self.intellectual_type = self.intellectual_type.lower()
 
-		# set collection pid
-		self.collection_pid = "wayne:collection%s" % self.collection_identifier
-
 		# DEBUG
 		print "#########################################"
 		print self.intellectual_type
 		print "#########################################"
+
+		# set collection pid
+		self.collection_pid = "wayne:collection%s" % self.collection_identifier
 
 
 	# method to create bag
@@ -105,8 +105,7 @@ class BagClass(object):
 			fhand.write(self.MODS)
 
 		# write PREMIS datastream
-		# write MODS
-		if self.intellectual_type == 'Item':
+		if self.intellectual_type == 'item':
 			with open("%s/PREMIS.xml" % (self.obj_dir), "w") as fhand:
 				# isntantiate PREMISClient
 				pc = models.PREMISClient()
@@ -114,11 +113,27 @@ class BagClass(object):
 					pc.add_event_xml(event)
 				fhand.write(pc.as_string(pretty_print=False))
 
+		# if collection, write ingest METS to bag
+		if self.intellectual_type == 'collection':
+
+			print "writing ingest and enrichmente METS files"
+
+			# archivematica METS
+			if self.object_row.job.ingest_metadata:
+				with open("%s/archivematica_METS.xml" % (self.obj_dir), "w") as fhand:
+					fhand.write(self.object_row.job.ingest_metadata)
+
+			# enrichment METS (from ArchivesSpace)
+			if self.object_row.job.enrichment_metadata:
+				with open("%s/aspace_enrichment_METS.xml" % (self.obj_dir), "w") as fhand:
+					fhand.write(self.object_row.job.enrichment_metadata)
+
 		# instantiate object with quick variables
 		objMeta_primer = {
 			"id": self.pid,
 			"identifier": self.full_identifier,
-			"label": self.object_title			
+			"label": self.object_title,
+			"intellectual_type": self.intellectual_type			
 		}
 
 		# Instantiate ObjMeta object
