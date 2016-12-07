@@ -138,7 +138,14 @@ class BagClass(object):
 				'htm': ('text/html','HTML'),
 				'pdf': ('application/pdf','PDF')
 			}
-			filetype_tuple = filetype_hash[ebook_binary.split(".")[-1]] 		
+			filetype_tuple = filetype_hash[ebook_binary.split(".")[-1]]
+
+			'''
+			Because the image and etext files come with such sporadic numbering,
+			it's difficult to just extract the page number that way.  
+
+			It might be better to just sort and begin numbering from 1.
+			'''
 			
 			# determine page num and DS ID
 			page_num = ebook_binary.split(".")[0].lstrip('0')
